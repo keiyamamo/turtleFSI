@@ -1,11 +1,11 @@
-from dolfin import *
+from os import path, makedirs, getcwd
 import os, math
-from turtleFSI.problems import *
-from utils.Womersley import make_womersley_bcs, compute_boundary_geometry_acrn
+from pprint import pprint
 import numpy as np
 from numpy import genfromtxt
-from os import path, makedirs, getcwd
-from pprint import pprint
+from dolfin import *
+from turtleFSI.problems import *
+from utils.Womersley import make_womersley_bcs, compute_boundary_geometry_acrn
 
 # set compiler arguments
 parameters["form_compiler"]["quadrature_degree"] = 6
@@ -68,6 +68,7 @@ def set_problem_parameters(default_variables, **namespace):
         save_step=1, # Save frequency of files for visualisation
         save_deg=save_deg_sim,          # Degree of the functions saved for visualisation '1' '2' '3' etc... (high value can slow down simulation significantly!)
         fsi_region=[x_sphere,y_sphere,z_sphere,r_sphere], # X, Y, and Z coordinate of FSI region center, radius of spherical deformable region (outside this region the walls are rigid)
+
     ))
 
     return default_variables
