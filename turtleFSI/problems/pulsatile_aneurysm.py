@@ -68,7 +68,6 @@ def set_problem_parameters(default_variables, **namespace):
         save_step=1, # Save frequency of files for visualisation
         save_deg=save_deg_sim,          # Degree of the functions saved for visualisation '1' '2' '3' etc... (high value can slow down simulation significantly!)
         fsi_region=[x_sphere,y_sphere,z_sphere,r_sphere], # X, Y, and Z coordinate of FSI region center, radius of spherical deformable region (outside this region the walls are rigid)
-        killtime=3000 # 40 mins # CHANGE 23:25 in seconds, after this time start dumping checkpoints every timestep
     ))
 
     return default_variables
