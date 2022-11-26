@@ -108,10 +108,10 @@ def get_mesh_domain_and_boundaries(mesh_file,fsi_region, fsi_id, rigid_id, outer
         i += 1
 
     # Checking boundaries and domains
-    f = File('case09.pvd')
-    f << boundaries
-    f << domains
-    exit(1)
+    # f = File('case09.pvd')
+    # f << boundaries
+    # f << domains
+    
 
     return mesh, domains, boundaries
 
