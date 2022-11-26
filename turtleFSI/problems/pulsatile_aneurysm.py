@@ -36,7 +36,7 @@ def set_problem_parameters(default_variables, **namespace):
     lambda_s_val = nu_s_val*2.*mu_s_val/(1. - 2.*nu_s_val)
 
     default_variables.update(dict(
-        T=2.853, # Simulation end time
+        T=1.902, # Simulation end time
         dt=dt,#0.00033964286, # Timne step size
         atol=1e-6, # Absolute tolerance in the Newton solver
         rtol=1e-6,# Relative tolerance in the Newton solver
@@ -46,6 +46,7 @@ def set_problem_parameters(default_variables, **namespace):
         recompute_tstep=2, # Recompute the Jacobian matix over time steps (dangerous!)  
         fsi_id=22,  # fsi surface
         rigid_id=11,  # "rigid wall" id for the fluid and mesh problem
+        ds_s_id=[33],                     # ID of solid external wall (where we want to test Robin BC)
         outer_id=33,  # outer surface
         folder=mesh_path,#"file_case9_el047",
         mesh_file=mesh_path,#"file_case9_el047",
@@ -60,6 +61,8 @@ def set_problem_parameters(default_variables, **namespace):
         lambda_s=lambda_s_val,  # Solid Young's modulus [Pa]
         dx_f_id=1,      # ID of marker in the fluid domain
         dx_s_id=2,      # ID of marker in the solid domain
+        robin_bc = True, # Robin BC
+        c_s = 1.0E2,                        # viscoelastic response necesary for RobinBC 
         extrapolation="laplace",  # laplace, elastic, biharmonic, no-extrapolation
         extrapolation_sub_type="constant",  # ["constant", "small_constant", "volume", "volume_change", "bc1", "bc2"]
         compiler_parameters=_compiler_parameters,  # Update the defaul values of the compiler arguments (FEniCS)
@@ -70,6 +73,10 @@ def set_problem_parameters(default_variables, **namespace):
         fsi_region=[x_sphere,y_sphere,z_sphere,r_sphere], # X, Y, and Z coordinate of FSI region center, radius of spherical deformable region (outside this region the walls are rigid)
 
     ))
+
+    if MPI.rank(MPI.comm_world)==0:
+        print("Running with the following parameters:")
+        pprint(default_variables)
 
     return default_variables
 
@@ -100,10 +107,11 @@ def get_mesh_domain_and_boundaries(mesh_file,fsi_region, fsi_id, rigid_id, outer
                 boundaries.array()[i] = rigid_id  # changed "fsi" idx to "rigid wall" idx
         i += 1
 
-    # # Checking boundaries and domains
-    # f = File('toto.pvd')
-    # f << boundaries
-    # f << domains
+    # Checking boundaries and domains
+    f = File('case09.pvd')
+    f << boundaries
+    f << domains
+    exit(1)
 
     return mesh, domains, boundaries
 
