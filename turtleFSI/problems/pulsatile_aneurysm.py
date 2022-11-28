@@ -62,7 +62,7 @@ def set_problem_parameters(default_variables, **namespace):
         dx_f_id=1,      # ID of marker in the fluid domain
         dx_s_id=2,      # ID of marker in the solid domain
         robin_bc = True, # Robin BC
-        c_s = 1.0E2,                        # viscoelastic response necesary for RobinBC 
+        c_s = 1.0E3,                        # viscoelastic response necesary for RobinBC 
         extrapolation="laplace",  # laplace, elastic, biharmonic, no-extrapolation
         extrapolation_sub_type="constant",  # ["constant", "small_constant", "volume", "volume_change", "bc1", "bc2"]
         compiler_parameters=_compiler_parameters,  # Update the defaul values of the compiler arguments (FEniCS)
