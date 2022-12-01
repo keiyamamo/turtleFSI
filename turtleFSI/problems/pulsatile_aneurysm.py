@@ -25,7 +25,7 @@ def set_problem_parameters(default_variables, **namespace):
     z_sphere = 0.064187
     r_sphere = 0.004
     dt = 0.00033964286
-    mesh_path = "file_case9_el047"
+    mesh_path = "case9_225k"
     save_deg_sim = 2
     Q_mean = 1.9275E-06
 
@@ -36,7 +36,7 @@ def set_problem_parameters(default_variables, **namespace):
     lambda_s_val = nu_s_val*2.*mu_s_val/(1. - 2.*nu_s_val)
 
     default_variables.update(dict(
-        T=1.902, # Simulation end time
+        T=2.853,     # Simulation end time
         dt=dt,#0.00033964286, # Timne step size
         atol=1e-6, # Absolute tolerance in the Newton solver
         rtol=1e-6,# Relative tolerance in the Newton solver
@@ -48,8 +48,8 @@ def set_problem_parameters(default_variables, **namespace):
         rigid_id=11,  # "rigid wall" id for the fluid and mesh problem
         ds_s_id=[33],                     # ID of solid external wall (where we want to test Robin BC)
         outer_id=33,  # outer surface
-        folder=mesh_path,#"file_case9_el047",
-        mesh_file=mesh_path,#"file_case9_el047",
+        folder=mesh_path,
+        mesh_file=mesh_path,
         Q_file="MCA_10", # This is the location of CFD results used to prescribe the inlet velocity profile
         Q_mean=Q_mean,#1.9275E-06, # Problem specific
         theta=0.501, # Theta scheme (implicit/explicit time stepping)
@@ -61,8 +61,6 @@ def set_problem_parameters(default_variables, **namespace):
         lambda_s=lambda_s_val,  # Solid Young's modulus [Pa]
         dx_f_id=1,      # ID of marker in the fluid domain
         dx_s_id=2,      # ID of marker in the solid domain
-        robin_bc = True, # Robin BC
-        c_s = 1.0E3,                        # viscoelastic response necesary for RobinBC 
         extrapolation="laplace",  # laplace, elastic, biharmonic, no-extrapolation
         extrapolation_sub_type="constant",  # ["constant", "small_constant", "volume", "volume_change", "bc1", "bc2"]
         compiler_parameters=_compiler_parameters,  # Update the defaul values of the compiler arguments (FEniCS)
