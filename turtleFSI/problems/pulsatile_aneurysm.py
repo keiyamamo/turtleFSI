@@ -72,10 +72,6 @@ def set_problem_parameters(default_variables, **namespace):
 
     ))
 
-    if MPI.rank(MPI.comm_world)==0:
-        print("Running with the following parameters:")
-        pprint(default_variables)
-
     return default_variables
 
 def get_mesh_domain_and_boundaries(mesh_file,fsi_region, fsi_id, rigid_id, outer_id, folder, **namespace):
