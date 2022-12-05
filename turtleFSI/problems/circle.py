@@ -1,5 +1,6 @@
 from dolfin import *
 from turtleFSI.problems import *
+import numpy as np
 
 # The "ghost_mode" has to do with the assembly of form containing the facet normals n('+') within interior boundaries (dS). For 3D mesh the value should be "shared_vertex", for 2D mesh "shared_facet", the default value is "none".
 parameters["ghost_mode"] = "shared_facet" #2D mesh case
@@ -21,25 +22,25 @@ def set_problem_parameters(default_variables, **namespace):
         atol=1e-7,                           # Absolute tolerance in the Newton solver
         rtol=1e-7,                           # Relative tolerance in the Newton solver
         robin_bc=True,                       # Robin boundary condition
-        dx_f_id=1,                           # ID of marker in the fluid domain
-        dx_s_id=2,                           # ID of marker in the solid domain
-        ds_s_id=[4],                       # IDs of solid external boundaries for Robin BC (external wall + solid outlet)
+        dx_s_id=1,                           # ID of marker in the solid domain
+        ds_s_id=[1],                       # IDs of solid external boundaries for Robin BC (external wall + solid outlet)
         rho_f=1.025E3,                       # Fluid density [kg/m3]
         mu_f=1.0,                         # Fluid dynamic viscosity [Pa.s]
         rho_s=1.0E3,                         # Solid density [kg/m3]
         mu_s=mu_s_val,                       # Solid shear modulus or 2nd Lame Coef. [Pa]
         nu_s=nu_s_val,                       # Solid Poisson ratio [-]
         lambda_s=lambda_s_val,               # Solid 1rst Lamé coef. [Pa]
-        k_s = 1E5,                          # elastic response necesary for RobinBC
+        k_s = 1E7,                         # elastic response necesary for RobinBC
         c_s = 0,                             # viscoelastic response necesary for RobinBC
         extrapolation="laplace",             # laplace, elastic, biharmonic, no-extrapolation
         extrapolation_sub_type="constant",   # constant, small_constant, volume, volume_change, bc1, bc2
         recompute=5,                        # Number of iterations before recompute Jacobian. 
         recompute_tstep=10,                  # Number of time steps before recompute Jacobian. 
         save_step=1,                         # Save frequency of files for visualisation
-        folder="CircleinFluid",              # Folder where the results will be stored
+        folder="circle",              # Folder where the results will be stored
         checkpoint_step=50,                  # checkpoint frequency
-        # gravity = 10.0,
+        fluid="no_fluid",                  # Do not solve for the fluid
+        # gravity = 2.0,
         save_deg=1                           # Default could be 1. 1 saves the nodal values only while 2 takes full advantage of the mide side nodes available in the P2 solution. P2 for nice visualisations
     ))
 
@@ -49,7 +50,7 @@ def set_problem_parameters(default_variables, **namespace):
 def get_mesh_domain_and_boundaries(folder, **namespace):
     # Import mesh file
     mesh = Mesh()
-    with XDMFFile("mesh/CircleinFluid/mesh.xdmf") as infile:
+    with XDMFFile("mesh/Circle/mesh.xdmf") as infile:
         infile.read(mesh)
     # # Rescale the mesh coordinated from [mm] to [m]
     x = mesh.coordinates()
@@ -59,12 +60,12 @@ def get_mesh_domain_and_boundaries(folder, **namespace):
 
     # Define mesh domains
     domains = MeshFunction("size_t", mesh, mesh.topology().dim()) 
-    with XDMFFile("mesh/CircleinFluid/mesh.xdmf") as infile:
+    with XDMFFile("mesh/Circle/mesh.xdmf") as infile:
         infile.read(domains, "name_to_read")
 
     # Import mesh boundaries
     boundaries_mvc = MeshValueCollection("size_t", mesh, mesh.topology().dim()-1) 
-    with XDMFFile("mesh/CircleinFluid/facet_mesh.xdmf") as infile:
+    with XDMFFile("mesh/Circle/facet_mesh.xdmf") as infile:
         infile.read(boundaries_mvc, "name_to_read")
 
     boundaries = cpp.mesh.MeshFunctionSizet(mesh, boundaries_mvc)
@@ -80,6 +81,7 @@ def get_mesh_domain_and_boundaries(folder, **namespace):
     # exit(1)
 
     return mesh, domains, boundaries
+
 
 class BodyForceImpulse(UserExpression):
     def __init__(self, force_val, t_start,t_end,t,**kwargs):
@@ -105,28 +107,19 @@ class BodyForceImpulse(UserExpression):
     def value_shape(self):
         return (2,)
 
+
 # Create boundary conditions
 def create_bcs(DVP, boundaries, dx_s, psi, F_solid_linear, **namespace):
-    
-    info_red("Create bcs")
-    bcs=[]
-    # No slip boundary condition
-    for i in range(1,4):
-        bc = DirichletBC(DVP.sub(1), ((0.0, 0.0)), boundaries, i)
-        bcs.append(bc)
-    # No deformation 
-    for i in range(1,4):
-        bc = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, i)
-        bcs.append(bc)
 
-    impulse_force = BodyForceImpulse(force_val=1e5, t_start=0.005,t_end=0.015,t=0.0)
+    bcs=[]
+
+    impulse_force = BodyForceImpulse(force_val=1e5, t_start=0.01,t_end=0.015,t=0.0)
     F_solid_linear -= inner(impulse_force, psi)*dx_s[0]
-    
+
     return dict(bcs=bcs, F_solid_linear=F_solid_linear, impulse_force=impulse_force)
-    # return dict(bcs=bcs)
+
 
 def pre_solve(t, impulse_force, **namespace):
     # Update the time variable used for the inlet boundary condition
     impulse_force.update(t)
     return dict(impulse_force=impulse_force)
-
