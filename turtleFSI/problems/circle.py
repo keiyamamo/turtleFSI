@@ -1,6 +1,8 @@
+import numpy as np
+from os import path
 from dolfin import *
 from turtleFSI.problems import *
-import numpy as np
+
 
 # The "ghost_mode" has to do with the assembly of form containing the facet normals n('+') within interior boundaries (dS). For 3D mesh the value should be "shared_vertex", for 2D mesh "shared_facet", the default value is "none".
 parameters["ghost_mode"] = "shared_facet" #2D mesh case
@@ -9,7 +11,7 @@ _compiler_parameters = dict(parameters["form_compiler"])
 
 def set_problem_parameters(default_variables, **namespace):
     # set problem parameters values
-    E_s_val = 100E6                            # Young modulus (elasticity) [Pa] Increased a lot for the 2D case
+    E_s_val = 1E6                            # Young modulus (elasticity) [Pa] Increased a lot for the 2D case
     nu_s_val = 0.45                            # Poisson ratio (compressibility)
     mu_s_val = E_s_val / (2 * (1 + nu_s_val))  # Shear modulus
     lambda_s_val = nu_s_val * 2. * mu_s_val / (1. - 2. * nu_s_val)
@@ -23,15 +25,15 @@ def set_problem_parameters(default_variables, **namespace):
         rtol=1e-7,                           # Relative tolerance in the Newton solver
         robin_bc=True,                       # Robin boundary condition
         dx_s_id=1,                           # ID of marker in the solid domain
-        ds_s_id=[1],                       # IDs of solid external boundaries for Robin BC (external wall + solid outlet)
+        ds_s_id=[1],                         # IDs of solid external boundaries for Robin BC (external wall + solid outlet)
         rho_f=1.025E3,                       # Fluid density [kg/m3]
-        mu_f=1.0,                         # Fluid dynamic viscosity [Pa.s]
-        rho_s=1.0E3,                         # Solid density [kg/m3]
+        mu_f=1.0,                            # Fluid dynamic viscosity [Pa.s]
+        rho_s=2E3,                         # Solid density [kg/m3]
         mu_s=mu_s_val,                       # Solid shear modulus or 2nd Lame Coef. [Pa]
         nu_s=nu_s_val,                       # Solid Poisson ratio [-]
         lambda_s=lambda_s_val,               # Solid 1rst Lamé coef. [Pa]
-        k_s = 1E7,                         # elastic response necesary for RobinBC
-        c_s = 0,                             # viscoelastic response necesary for RobinBC
+        k_s = 51E5,                         # elastic response necesary for RobinBC
+        c_s = 9E2,                             # viscoelastic response necesary for RobinBC
         extrapolation="laplace",             # laplace, elastic, biharmonic, no-extrapolation
         extrapolation_sub_type="constant",   # constant, small_constant, volume, volume_change, bc1, bc2
         recompute=5,                        # Number of iterations before recompute Jacobian. 
@@ -113,13 +115,31 @@ def create_bcs(DVP, boundaries, dx_s, psi, F_solid_linear, **namespace):
 
     bcs=[]
 
-    impulse_force = BodyForceImpulse(force_val=1e5, t_start=0.01,t_end=0.015,t=0.0)
+    impulse_force = BodyForceImpulse(force_val=1e5, t_start=0.005,t_end=0.008,t=0.0)
     F_solid_linear -= inner(impulse_force, psi)*dx_s[0]
 
     return dict(bcs=bcs, F_solid_linear=F_solid_linear, impulse_force=impulse_force)
+
+# def initiate(dvp_,DVP, **namespace):
+
+#     center_point = np.array([0.2, 1.3])
+#     d_probe = Probe(center_point, DVP.sub(0))
+#     d_probe(dvp_["n"].sub(0, deepcopy=True))
+
+#     return dict(d_probe=d_probe)
 
 
 def pre_solve(t, impulse_force, **namespace):
     # Update the time variable used for the inlet boundary condition
     impulse_force.update(t)
     return dict(impulse_force=impulse_force)
+
+
+# def post_solve(d_probe, dvp_,  **namespace):
+#     d_probe(dvp_["n"].sub(0, deepcopy=True))
+
+def finished(results_folder, default_variables, **namespace):
+    with open(path.join(results_folder, 'params.txt'), 'w') as par:
+        for key, value in default_variables.items(): 
+            par.write('%s: %s\n' % (key, value))
+    

@@ -1,3 +1,5 @@
+import numpy as np
+from os import path
 from dolfin import *
 from turtleFSI.problems import *
 
@@ -8,7 +10,7 @@ _compiler_parameters = dict(parameters["form_compiler"])
 
 def set_problem_parameters(default_variables, **namespace):
     # set problem parameters values
-    E_s_val = 100E6                            # Young modulus (elasticity) [Pa] Increased a lot for the 2D case
+    E_s_val = 1E6                            # Young modulus (elasticity) [Pa] Increased a lot for the 2D case
     nu_s_val = 0.45                            # Poisson ratio (compressibility)
     mu_s_val = E_s_val / (2 * (1 + nu_s_val))  # Shear modulus
     lambda_s_val = nu_s_val * 2. * mu_s_val / (1. - 2. * nu_s_val)
@@ -30,7 +32,7 @@ def set_problem_parameters(default_variables, **namespace):
         mu_s=mu_s_val,                       # Solid shear modulus or 2nd Lame Coef. [Pa]
         nu_s=nu_s_val,                       # Solid Poisson ratio [-]
         lambda_s=lambda_s_val,               # Solid 1rst Lamé coef. [Pa]
-        k_s = 1E5,                          # elastic response necesary for RobinBC
+        k_s = 51E5,                          # elastic response necesary for RobinBC
         c_s = 0,                             # viscoelastic response necesary for RobinBC
         extrapolation="laplace",             # laplace, elastic, biharmonic, no-extrapolation
         extrapolation_sub_type="constant",   # constant, small_constant, volume, volume_change, bc1, bc2
@@ -39,7 +41,6 @@ def set_problem_parameters(default_variables, **namespace):
         save_step=1,                         # Save frequency of files for visualisation
         folder="CircleinFluid",              # Folder where the results will be stored
         checkpoint_step=50,                  # checkpoint frequency
-        # gravity = 10.0,
         save_deg=1                           # Default could be 1. 1 saves the nodal values only while 2 takes full advantage of the mide side nodes available in the P2 solution. P2 for nice visualisations
     ))
 
@@ -111,22 +112,38 @@ def create_bcs(DVP, boundaries, dx_s, psi, F_solid_linear, **namespace):
     info_red("Create bcs")
     bcs=[]
     # No slip boundary condition
-    for i in range(1,4):
+    for i in range(3,4):
         bc = DirichletBC(DVP.sub(1), ((0.0, 0.0)), boundaries, i)
         bcs.append(bc)
+
     # No deformation 
     for i in range(1,4):
         bc = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, i)
         bcs.append(bc)
 
-    impulse_force = BodyForceImpulse(force_val=1e5, t_start=0.005,t_end=0.015,t=0.0)
+    impulse_force = BodyForceImpulse(force_val=1e5, t_start=0.005,t_end=0.010,t=0.0)
     F_solid_linear -= inner(impulse_force, psi)*dx_s[0]
     
     return dict(bcs=bcs, F_solid_linear=F_solid_linear, impulse_force=impulse_force)
-    # return dict(bcs=bcs)
+    
+
+
+# def initiate(dvp_, DVP, **namespace):
+
+#     center_point = np.array([0.2, 1.3])
+#     d_probe = Probe(center_point, DVP.sub(0))
+#     d_probe(dvp_["n"].sub(0, deepcopy=True))
+
+#     return dict(d_probe=d_probe)
 
 def pre_solve(t, impulse_force, **namespace):
     # Update the time variable used for the inlet boundary condition
     impulse_force.update(t)
     return dict(impulse_force=impulse_force)
 
+# def post_solve(d_probe, dvp_, **namespace):
+#     d_probe(dvp_["n"].sub(0, deepcopy=True))
+
+# def finished(d_probe, results_folder, **namespace):
+#     np.savetxt(path.join(results_folder, 'deformation.txt'), d_probe.get_probe_sub(1), delimiter=',')
+    
