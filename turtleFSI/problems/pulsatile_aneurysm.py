@@ -51,6 +51,7 @@ def set_problem_parameters(default_variables, **namespace):
         folder=mesh_path,
         mesh_file=mesh_path,
         Q_file="MCA_10", # This is the location of CFD results used to prescribe the inlet velocity profile
+        solid_properties={"dx_s_id":1,"material_model":"MooneyRivlin","rho_s":1.0E3,"mu_s":mu_s_val,"lambda_s":lambda_s_val,"C01":0.02e6,"C10":0.0,"C11":1.8e6},
         Q_mean=Q_mean,#1.9275E-06, # Problem specific
         theta=0.501, # Theta scheme (implicit/explicit time stepping)
         rho_f=1.000E3,    # Fluid density [kg/m3]
