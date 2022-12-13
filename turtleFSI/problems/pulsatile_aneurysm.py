@@ -30,7 +30,7 @@ def set_problem_parameters(default_variables, **namespace):
     Q_mean = 1.9275E-06
 
     # Overwrite default values
-    E_s_val = 1E6
+    E_s_val = 0.5E6
     nu_s_val = 0.45
     mu_s_val = E_s_val/(2*(1+nu_s_val))  # 0.345E6
     lambda_s_val = nu_s_val*2.*mu_s_val/(1. - 2.*nu_s_val)
@@ -65,7 +65,7 @@ def set_problem_parameters(default_variables, **namespace):
         extrapolation_sub_type="constant",  # ["constant", "small_constant", "volume", "volume_change", "bc1", "bc2"]
         compiler_parameters=_compiler_parameters,  # Update the defaul values of the compiler arguments (FEniCS)
         linear_solver="mumps",  # use list_linear_solvers() to check alternatives
-        checkpoint_step=5, # CHANGE
+        checkpoint_step=100, # CHANGE
         save_step=1, # Save frequency of files for visualisation
         save_deg=save_deg_sim,          # Degree of the functions saved for visualisation '1' '2' '3' etc... (high value can slow down simulation significantly!)
         fsi_region=[x_sphere,y_sphere,z_sphere,r_sphere], # X, Y, and Z coordinate of FSI region center, radius of spherical deformable region (outside this region the walls are rigid)
