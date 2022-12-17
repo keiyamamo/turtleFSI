@@ -10,7 +10,7 @@ _compiler_parameters = dict(parameters["form_compiler"])
 
 def set_problem_parameters(default_variables, **namespace):
     # set problem parameters values
-    E_s_val = 1E6                            # Young modulus (elasticity) [Pa] Increased a lot for the 2D case
+    E_s_val = 1E6                              # Young modulus (elasticity) [Pa] Increased a lot for the 2D case
     nu_s_val = 0.45                            # Poisson ratio (compressibility)
     mu_s_val = E_s_val / (2 * (1 + nu_s_val))  # Shear modulus
     lambda_s_val = nu_s_val * 2. * mu_s_val / (1. - 2. * nu_s_val)
@@ -25,9 +25,9 @@ def set_problem_parameters(default_variables, **namespace):
         robin_bc=True,                       # Robin boundary condition
         dx_f_id=1,                           # ID of marker in the fluid domain
         dx_s_id=2,                           # ID of marker in the solid domain
-        ds_s_id=[4],                       # IDs of solid external boundaries for Robin BC (external wall + solid outlet)
+        ds_s_id=[4],                         # IDs of solid external boundaries for Robin BC (external wall + solid outlet)
         rho_f=1.025E3,                       # Fluid density [kg/m3]
-        mu_f=1.0,                         # Fluid dynamic viscosity [Pa.s]
+        mu_f=1.0,                            # Fluid dynamic viscosity [Pa.s]
         rho_s=1.0E3,                         # Solid density [kg/m3]
         mu_s=mu_s_val,                       # Solid shear modulus or 2nd Lame Coef. [Pa]
         nu_s=nu_s_val,                       # Solid Poisson ratio [-]
@@ -36,7 +36,7 @@ def set_problem_parameters(default_variables, **namespace):
         c_s = 0,                             # viscoelastic response necesary for RobinBC
         extrapolation="laplace",             # laplace, elastic, biharmonic, no-extrapolation
         extrapolation_sub_type="constant",   # constant, small_constant, volume, volume_change, bc1, bc2
-        recompute=5,                        # Number of iterations before recompute Jacobian. 
+        recompute=5,                         # Number of iterations before recompute Jacobian. 
         recompute_tstep=10,                  # Number of time steps before recompute Jacobian. 
         save_step=1,                         # Save frequency of files for visualisation
         folder="CircleinFluid",              # Folder where the results will be stored
