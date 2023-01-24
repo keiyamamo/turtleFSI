@@ -126,7 +126,7 @@ class InnerP(UserExpression):
         self.t = t
         # apply a sigmoid ramp to the pressure 
         if self.t < self.t_ramp:
-            ramp_factor = (-1/2)*np.cos(3.14159*self.t/self.t_ramp) + 1/2
+            ramp_factor = 1 / (1 + np.exp(-10*(self.t/self.t_ramp-0.5)))
         else:
             ramp_factor = 1.0
         if MPI.rank(MPI.comm_world) == 0:
