@@ -54,24 +54,9 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
     ksp.setType('preonly')
     pc = ksp.getPC()
     pc.setType('lu')
-    ksp.setMonitor(lambda ksp, its, rnorm: print(f"KSP: {its} {rnorm}"))
-    """
-    Here, I tried to use SNES, which is a nonlinear solver in PETSc. 
-    It does not work at the moment and need time to learn how to use SNES.
-    Ignore for now.
-    """
-    # snes = PETSc.SNES().create()
-    # A = assemble(J_nonlinear, tensor=A,form_compiler_parameters=compiler_parameters, keep_diagonal=True)
-    # A.axpy(1.0, A_pre, True)
-    # A.ident_zeros()
-    # [bc.apply(A) for bc in bcs]
-    # snes.setDM(as_backend_type(A).mat())
-    # b = assemble(-F, tensor=b)
-    # snes.setConvergenceHistory()
-    # # Apply boundary conditions and solve
-    # [bc.apply(b, dvp_["n"].vector()) for bc in bcs]
-    # snes.solve(as_backend_type(b).vec(), as_backend_type(dvp_res.vector().vec()))
-
+    pc.setFactorSolverType('mumps') # Default value "petsc" causes diverging solve
+    ksp.setMonitor(lambda ksp, its, rnorm: print(f"KSP: {its} {rnorm}") if MPI.rank(MPI.comm_world) == 0 else None)
+  
     while rel_res > rtol and residual > atol and iter < max_it:
         # Check if recompute Jacobian from 'recompute_tstep' (time step)
         recompute_for_timestep = iter == 0 and (counter % recompute_tstep == 0)
@@ -96,25 +81,23 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
             [bc.apply(A) for bc in bcs]
             # up_sol.set_operator(A)
             ksp.setOperators(as_backend_type(A).mat())
-            
+    
         # Compute right hand side
         b = assemble(-F, tensor=b)
 
         # Apply boundary conditions and solve
         [bc.apply(b, dvp_["n"].vector()) for bc in bcs]
-        print("Before solve")
-        print(dvp_res.vector().get_local())
-
+        
         # Solve linear system
         # up_sol.solve(dvp_res.vector(), b)
+        pc.setUp()
         ksp.solve(as_backend_type(b).vec(), as_backend_type(dvp_res.vector().vec()))
-
-        print("After solve")
-        print(dvp_res.vector().get_local())
+        ksp.view()
+        assert ksp.getConvergedReason() > 0
 
         dvp_["n"].vector().axpy(lmbda, dvp_res.vector())
         [bc.apply(dvp_["n"].vector()) for bc in bcs]
-        
+        print("dvp_res", dvp_res.vector().get_local())
         # Reset residuals
         last_residual = residual
         last_rel_res = rel_res
