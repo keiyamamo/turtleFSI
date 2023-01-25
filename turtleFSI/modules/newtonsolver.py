@@ -3,7 +3,7 @@
 # the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 # PURPOSE.
 
-from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI
+from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions, as_backend_type
 
 
 def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
@@ -48,6 +48,15 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
     last_rel_res = residual
     last_residual = rel_res
 
+    from petsc4py import PETSc
+    # Initialize ksp solver.
+    ksp = PETSc.KSP().create()
+    ksp.setType('preonly')
+    pc = ksp.getPC()
+    pc.setType('lu')
+    pc.setFactorSolverType('mumps') # Default value "petsc" causes diverging solve
+    ksp.setMonitor(lambda ksp, its, rnorm: print(f"KSP: {its} {rnorm}") if MPI.rank(MPI.comm_world) == 0 else None)
+  
     while rel_res > rtol and residual > atol and iter < max_it:
         # Check if recompute Jacobian from 'recompute_tstep' (time step)
         recompute_for_timestep = iter == 0 and (counter % recompute_tstep == 0)
@@ -70,17 +79,25 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
             A.axpy(1.0, A_pre, True)
             A.ident_zeros()
             [bc.apply(A) for bc in bcs]
-            up_sol.set_operator(A)
-
+            # up_sol.set_operator(A)
+            ksp.setOperators(as_backend_type(A).mat())
+    
         # Compute right hand side
         b = assemble(-F, tensor=b)
 
         # Apply boundary conditions and solve
         [bc.apply(b, dvp_["n"].vector()) for bc in bcs]
-        up_sol.solve(dvp_res.vector(), b)
+        
+        # Solve linear system
+        # up_sol.solve(dvp_res.vector(), b)
+        pc.setUp()
+        ksp.solve(as_backend_type(b).vec(), as_backend_type(dvp_res.vector().vec()))
+        ksp.view()
+        assert ksp.getConvergedReason() > 0
+
         dvp_["n"].vector().axpy(lmbda, dvp_res.vector())
         [bc.apply(dvp_["n"].vector()) for bc in bcs]
-
+        print("dvp_res", dvp_res.vector().get_local())
         # Reset residuals
         last_residual = residual
         last_rel_res = rel_res
