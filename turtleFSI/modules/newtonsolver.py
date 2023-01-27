@@ -51,12 +51,14 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
     from petsc4py import PETSc
     # Initialize ksp solver.
     ksp = PETSc.KSP().create()
+    ksp_viewer = PETSc.Viewer().createASCII("ksp_output.txt")
+    pc_viewer = PETSc.Viewer().createASCII("pc_output.txt")
     ksp.setType('preonly')
     pc = ksp.getPC()
     pc.setType('lu')
     pc.setFactorSolverType('mumps') # Default value "petsc" causes diverging solve
     ksp.setMonitor(lambda ksp, its, rnorm: print(f"KSP: {its} {rnorm}") if MPI.rank(MPI.comm_world) == 0 else None)
-  
+    ksp.setOperators(as_backend_type(A).mat())
     while rel_res > rtol and residual > atol and iter < max_it:
         # Check if recompute Jacobian from 'recompute_tstep' (time step)
         recompute_for_timestep = iter == 0 and (counter % recompute_tstep == 0)
@@ -73,14 +75,13 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         if recompute_for_timestep or recompute_frequency or recompute_residual or recompute_initialize:
             if MPI.rank(MPI.comm_world) == 0 and verbose:
                 print("Compute Jacobian matrix")
-            A = assemble(J_nonlinear, tensor=A,
+            assemble(J_nonlinear, tensor=A,
                          form_compiler_parameters=compiler_parameters,
                          keep_diagonal=True)
             A.axpy(1.0, A_pre, True)
             A.ident_zeros()
             [bc.apply(A) for bc in bcs]
             # up_sol.set_operator(A)
-            ksp.setOperators(as_backend_type(A).mat())
     
         # Compute right hand side
         b = assemble(-F, tensor=b)
@@ -91,13 +92,22 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         # Solve linear system
         # up_sol.solve(dvp_res.vector(), b)
         pc.setUp()
+        pc.view(pc_viewer)
+        pc_output = open("pc_output.txt", "r")
+        if MPI.rank(MPI.comm_world) == 0:
+            print(pc_output.read())
+            pc_output.close()
         ksp.solve(as_backend_type(b).vec(), as_backend_type(dvp_res.vector().vec()))
-        ksp.view()
+        ksp.view(ksp_viewer)
+        ksp_output = open("ksp_output.txt", "r")
+        if MPI.rank(MPI.comm_world) == 0:
+            print(ksp_output.read())
+            ksp_output.close()
         assert ksp.getConvergedReason() > 0
 
         dvp_["n"].vector().axpy(lmbda, dvp_res.vector())
         [bc.apply(dvp_["n"].vector()) for bc in bcs]
-        print("dvp_res", dvp_res.vector().get_local())
+        # print("dvp_res", dvp_res.vector().get_local())
         # Reset residuals
         last_residual = residual
         last_rel_res = rel_res
