@@ -30,7 +30,7 @@ def set_problem_parameters(default_variables, **namespace):
     Q_mean = 1.9275E-06
 
     # Overwrite default values
-    E_s_val = 0.5E6
+    E_s_val = 1E6
     nu_s_val = 0.45
     mu_s_val = E_s_val/(2*(1+nu_s_val))  # 0.345E6
     lambda_s_val = nu_s_val*2.*mu_s_val/(1. - 2.*nu_s_val)
@@ -51,7 +51,6 @@ def set_problem_parameters(default_variables, **namespace):
         folder=mesh_path,
         mesh_file=mesh_path,
         Q_file="MCA_10", # This is the location of CFD results used to prescribe the inlet velocity profile
-        solid_properties={"dx_s_id":1,"material_model":"MooneyRivlin","rho_s":1.0E3,"mu_s":mu_s_val,"lambda_s":lambda_s_val,"C01":0.02e6,"C10":0.0,"C11":1.8e6},
         Q_mean=Q_mean,#1.9275E-06, # Problem specific
         theta=0.501, # Theta scheme (implicit/explicit time stepping)
         rho_f=1.000E3,    # Fluid density [kg/m3]
@@ -66,7 +65,7 @@ def set_problem_parameters(default_variables, **namespace):
         extrapolation_sub_type="constant",  # ["constant", "small_constant", "volume", "volume_change", "bc1", "bc2"]
         compiler_parameters=_compiler_parameters,  # Update the defaul values of the compiler arguments (FEniCS)
         linear_solver="mumps",  # use list_linear_solvers() to check alternatives
-        checkpoint_step=100, # CHANGE
+        checkpoint_step=50, # CHANGE
         save_step=1, # Save frequency of files for visualisation
         save_deg=save_deg_sim,          # Degree of the functions saved for visualisation '1' '2' '3' etc... (high value can slow down simulation significantly!)
         fsi_region=[x_sphere,y_sphere,z_sphere,r_sphere], # X, Y, and Z coordinate of FSI region center, radius of spherical deformable region (outside this region the walls are rigid)
@@ -126,7 +125,8 @@ class InnerP(UserExpression):
         self.t = t
         # apply a sigmoid ramp to the pressure 
         if self.t < self.t_ramp:
-            ramp_factor = 1 / (1 + np.exp(-10*(self.t/self.t_ramp-0.5)))
+            # ramp_factor = 1 / (1 + np.exp(-10*(self.t/self.t_ramp-0.5)))
+            ramp_factor = (-1/2)*np.cos(3.14159*self.t/self.t_ramp) + 1/2
         else:
             ramp_factor = 1.0
         if MPI.rank(MPI.comm_world) == 0:

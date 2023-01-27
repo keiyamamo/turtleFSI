@@ -58,7 +58,6 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
     pc.setType('lu')
     pc.setFactorSolverType('mumps') # Default value "petsc" causes diverging solve
     ksp.setMonitor(lambda ksp, its, rnorm: print(f"KSP: {its} {rnorm}") if MPI.rank(MPI.comm_world) == 0 else None)
-    ksp.setOperators(as_backend_type(A).mat())
     while rel_res > rtol and residual > atol and iter < max_it:
         # Check if recompute Jacobian from 'recompute_tstep' (time step)
         recompute_for_timestep = iter == 0 and (counter % recompute_tstep == 0)
@@ -82,6 +81,7 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
             A.ident_zeros()
             [bc.apply(A) for bc in bcs]
             # up_sol.set_operator(A)
+            ksp.setOperators(as_backend_type(A).mat())
     
         # Compute right hand side
         b = assemble(-F, tensor=b)
