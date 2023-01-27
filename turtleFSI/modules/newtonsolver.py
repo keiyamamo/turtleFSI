@@ -74,7 +74,7 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         if recompute_for_timestep or recompute_frequency or recompute_residual or recompute_initialize:
             if MPI.rank(MPI.comm_world) == 0 and verbose:
                 print("Compute Jacobian matrix")
-            A = assemble(J_nonlinear, tensor=A,
+            assemble(J_nonlinear, tensor=A,
                          form_compiler_parameters=compiler_parameters,
                          keep_diagonal=True)
             A.axpy(1.0, A_pre, True)
@@ -92,14 +92,9 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         # Solve linear system
         # up_sol.solve(dvp_res.vector(), b)
         if not as_backend_type(A).mat().assembled:
-            if MPI.rank(MPI.comm_world) == 0:
-                print("Warning: Matrix not assembled")
+            print("Warning: Matrix not assembled")
             as_backend_type(A).assemble()
-        if not as_backend_type(b).vec().assembled:
-            if MPI.rank(MPI.comm_world) == 0:
-                print("Warning: Vector not assembled")
-            as_backend_type(b).assemble()
-
+        
         pc.setUp()
         pc.view(pc_viewer)
         pc_output = open("pc_output.txt", "r")
