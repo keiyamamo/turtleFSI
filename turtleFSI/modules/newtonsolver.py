@@ -91,12 +91,17 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         
         # Solve linear system
         # up_sol.solve(dvp_res.vector(), b)
+        if not as_backend_type(A).mat().assembled:
+            print("Warning: Matrix not assembled")
+            as_backend_type(A).assemble()
+        
         pc.setUp()
         pc.view(pc_viewer)
         pc_output = open("pc_output.txt", "r")
         if MPI.rank(MPI.comm_world) == 0:
             print(pc_output.read())
             pc_output.close()
+
         ksp.solve(as_backend_type(b).vec(), as_backend_type(dvp_res.vector().vec()))
         ksp.view(ksp_viewer)
         ksp_output = open("ksp_output.txt", "r")
