@@ -4,7 +4,7 @@
 # PURPOSE.
 
 from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions, as_backend_type
-
+from petsc4py import PETSc
 
 def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
                  DVP, dvp_, up_sol, compiler_parameters, **namespace):
@@ -48,7 +48,6 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
     last_rel_res = residual
     last_residual = rel_res
 
-    from petsc4py import PETSc
     # Initialize ksp solver.
     ksp = PETSc.KSP().create()
     ksp_viewer = PETSc.Viewer().createASCII("ksp_output.txt")
@@ -76,13 +75,12 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
             if MPI.rank(MPI.comm_world) == 0 and verbose:
                 print("Compute Jacobian matrix")
             q = id(A)
-            A = assemble(J_nonlinear, tensor=A,
+            assemble(J_nonlinear, tensor=A,
                          form_compiler_parameters=compiler_parameters,
                          keep_diagonal=True)
             t = id(A)
             if MPI.rank(MPI.comm_world) == 0:
                 print(q, t)
-                
             A.axpy(1.0, A_pre, True)
             A.ident_zeros()
             [bc.apply(A) for bc in bcs]
