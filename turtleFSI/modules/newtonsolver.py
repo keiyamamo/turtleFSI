@@ -5,6 +5,7 @@
 
 from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions, as_backend_type
 from petsc4py import PETSc
+import os
 
 def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
                  DVP, dvp_, up_sol, compiler_parameters, **namespace):
@@ -31,7 +32,7 @@ def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonl
 
 
 def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_tstep, compiler_parameters,
-                 dvp_, up_sol, dvp_res, rtol, atol, max_it, counter, first_step_num, verbose, **namespace):
+                 dvp_, up_sol, dvp_res, rtol, atol, max_it, counter, first_step_num, verbose, results_folder, **namespace):
     """
     Solve the non-linear system of equations with Newton scheme. The standard is to compute the Jacobian
     every time step, however this is computationally costly. We have therefore added two parameters for
@@ -50,14 +51,14 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
 
     # Initialize ksp solver.
     ksp = PETSc.KSP().create()
-    # ksp_viewer = PETSc.Viewer().createASCII("ksp_output.txt")
-    # pc_viewer = PETSc.Viewer().createASCII("pc_output.txt")
+    ksp_viewer = PETSc.Viewer().createASCII("ksp_output.txt")
+    pc_viewer = PETSc.Viewer().createASCII("pc_output.txt")
     ksp.setType('preonly')
     pc = ksp.getPC()
     pc.setType('lu')
     pc.setFactorSolverType('mumps') # Default value "petsc" causes diverging solve
     # PETScOptions.set("mat_mumps_icntl_28", 1)
-    # ksp.setMonitor(lambda ksp, its, rnorm: print(f"KSP: {its} {rnorm}") if MPI.rank(MPI.comm_world) == 0 else None)
+    ksp.setMonitor(lambda ksp, its, rnorm: print(f"KSP: {its} {rnorm}") if MPI.rank(MPI.comm_world) == 0 else None)
     ksp.setOperators(as_backend_type(A).mat())
     while rel_res > rtol and residual > atol and iter < max_it:
         # Check if recompute Jacobian from 'recompute_tstep' (time step)
@@ -97,18 +98,29 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         #     as_backend_type(A).mat().assemble()
         
         pc.setUp()
-        # pc.view(pc_viewer)
-        # pc_output = open("pc_output.txt", "r")
-        # if MPI.rank(MPI.comm_world) == 0:
-        #     print(pc_output.read())
-        #     pc_output.close()
+        pc.view(pc_viewer)
+        pc_output = open("pc_output.txt", "r")
+        if MPI.rank(MPI.comm_world) == 0:
+            print(pc_output.read())
+            pc_output.close()
 
         ksp.solve(as_backend_type(b).vec(), as_backend_type(dvp_res.vector().vec()))
-        # ksp.view(ksp_viewer)
-        # ksp_output = open("ksp_output.txt", "r")
-        # if MPI.rank(MPI.comm_world) == 0:
-        #     print(ksp_output.read())
-        #     ksp_output.close()
+        ksp.view(ksp_viewer)
+        ksp_output = open("ksp_output.txt", "r")
+        if MPI.rank(MPI.comm_world) == 0:
+            print(ksp_output.read())
+            ksp_output.close()
+        if ksp.getConvergedReason() < 0:
+            print(f"ksp failed to converge with converged reason: {ksp.getConvergedReason()}" if MPI.rank(MPI.comm_world) == 0 else None)
+            A_petsc = as_backend_type(A).mat()
+            b_petsc = as_backend_type(b).vec()
+            matA_path = os.path.join(results_folder, "matrix-A.dat")
+            vecb_path = os.path.join(results_folder, "vector-B.dat")
+            viewer_A = PETSc.Viewer().createBinary(matA_path, 'w')
+            viewer_b = PETSc.Viewer().createBinary(vecb_path, 'w')
+            A_petsc.view(viewer_A)
+            b_petsc.view(viewer_b)
+
         assert ksp.getConvergedReason() > 0
 
         dvp_["n"].vector().axpy(lmbda, dvp_res.vector())
