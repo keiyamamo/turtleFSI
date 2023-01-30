@@ -50,13 +50,14 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
 
     # Initialize ksp solver.
     ksp = PETSc.KSP().create()
-    ksp_viewer = PETSc.Viewer().createASCII("ksp_output.txt")
-    pc_viewer = PETSc.Viewer().createASCII("pc_output.txt")
+    # ksp_viewer = PETSc.Viewer().createASCII("ksp_output.txt")
+    # pc_viewer = PETSc.Viewer().createASCII("pc_output.txt")
     ksp.setType('preonly')
     pc = ksp.getPC()
     pc.setType('lu')
     pc.setFactorSolverType('mumps') # Default value "petsc" causes diverging solve
-    ksp.setMonitor(lambda ksp, its, rnorm: print(f"KSP: {its} {rnorm}") if MPI.rank(MPI.comm_world) == 0 else None)
+    # PETScOptions.set("mat_mumps_icntl_28", 1)
+    # ksp.setMonitor(lambda ksp, its, rnorm: print(f"KSP: {its} {rnorm}") if MPI.rank(MPI.comm_world) == 0 else None)
     ksp.setOperators(as_backend_type(A).mat())
     while rel_res > rtol and residual > atol and iter < max_it:
         # Check if recompute Jacobian from 'recompute_tstep' (time step)
@@ -74,13 +75,9 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         if recompute_for_timestep or recompute_frequency or recompute_residual or recompute_initialize:
             if MPI.rank(MPI.comm_world) == 0 and verbose:
                 print("Compute Jacobian matrix")
-            q = id(A)
             assemble(J_nonlinear, tensor=A,
                          form_compiler_parameters=compiler_parameters,
                          keep_diagonal=True)
-            t = id(A)
-            if MPI.rank(MPI.comm_world) == 0:
-                print(q, t)
             A.axpy(1.0, A_pre, True)
             A.ident_zeros()
             [bc.apply(A) for bc in bcs]
@@ -95,23 +92,23 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         
         # Solve linear system
         # up_sol.solve(dvp_res.vector(), b)
-        if not as_backend_type(A).mat().assembled:
-            print("Warning: Matrix not assembled")
-            as_backend_type(A).mat().assemble()
+        # if not as_backend_type(A).mat().assembled:
+        #     print("Warning: Matrix not assembled")
+        #     as_backend_type(A).mat().assemble()
         
         pc.setUp()
-        pc.view(pc_viewer)
-        pc_output = open("pc_output.txt", "r")
-        if MPI.rank(MPI.comm_world) == 0:
-            print(pc_output.read())
-            pc_output.close()
+        # pc.view(pc_viewer)
+        # pc_output = open("pc_output.txt", "r")
+        # if MPI.rank(MPI.comm_world) == 0:
+        #     print(pc_output.read())
+        #     pc_output.close()
 
         ksp.solve(as_backend_type(b).vec(), as_backend_type(dvp_res.vector().vec()))
-        ksp.view(ksp_viewer)
-        ksp_output = open("ksp_output.txt", "r")
-        if MPI.rank(MPI.comm_world) == 0:
-            print(ksp_output.read())
-            ksp_output.close()
+        # ksp.view(ksp_viewer)
+        # ksp_output = open("ksp_output.txt", "r")
+        # if MPI.rank(MPI.comm_world) == 0:
+        #     print(ksp_output.read())
+        #     ksp_output.close()
         assert ksp.getConvergedReason() > 0
 
         dvp_["n"].vector().axpy(lmbda, dvp_res.vector())
@@ -125,7 +122,8 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         residual = b.norm('l2')
         rel_res = norm(dvp_res, 'l2')
         if rel_res > 1E20 or residual > 1E20:
-            raise RuntimeError("Error: The simulation has diverged during the Newton solve.")
+            raise RuntimeError("Error: The simulation has diverged during the Newton solve. r (atol) = %.3e (tol = %.3e), r (rel) = %.3e (tol = %.3e)"
+                               % (residual, atol, rel_res, rtol))
 
         if MPI.rank(MPI.comm_world) == 0 and verbose:
             print("Newton iteration %d: r (atol) = %.3e (tol = %.3e), r (rel) = %.3e (tol = %.3e) "
