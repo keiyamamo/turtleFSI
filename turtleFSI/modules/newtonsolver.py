@@ -7,6 +7,9 @@ from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETSc
 from petsc4py import PETSc
 import os
 
+PETScOptions.set("mat_mumps_icntl_28", 2) # Parallel analysis
+PETScOptions.set("mat_mumps_icntl_29", 2) # parallel ordering 1 = ptscotch, 2 = parmetis
+
 def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
                  DVP, dvp_, up_sol, compiler_parameters, **namespace):
     """
@@ -57,7 +60,6 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
     pc = ksp.getPC()
     pc.setType('lu')
     pc.setFactorSolverType('mumps') # Default value "petsc" causes diverging solve
-    # PETScOptions.set("mat_mumps_icntl_28", 1)
     ksp.setMonitor(lambda ksp, its, rnorm: print(f"KSP: {its} {rnorm}") if MPI.rank(MPI.comm_world) == 0 else None)
     ksp.setOperators(as_backend_type(A).mat())
     while rel_res > rtol and residual > atol and iter < max_it:
