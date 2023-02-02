@@ -14,6 +14,7 @@ parameters["form_compiler"]["optimize"] = True
 # normals n('+') within interior boundaries (dS). for 3D mesh the value should
 # be "shared_vertex", for 2D mesh "shared_facet", the default value is "none"
 parameters["ghost_mode"] = "shared_vertex"
+# parameters["mesh_partitioner"] = "ParMETIS"
 _compiler_parameters = dict(parameters["form_compiler"])
 
 

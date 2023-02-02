@@ -7,8 +7,9 @@ from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETSc
 from petsc4py import PETSc
 import os
 
-PETScOptions.set("mat_mumps_icntl_28", 2) # Parallel analysis
-PETScOptions.set("mat_mumps_icntl_29", 2) # parallel ordering 1 = ptscotch, 2 = parmetis
+# PETScOptions.set("mat_mumps_icntl_28", 2) # Parallel analysis
+# PETScOptions.set("mat_mumps_icntl_29", 2) # parallel ordering 1 = ptscotch, 2 = parmetis
+PETScOptions.set("mat_mumps_icntl_14", 50)
 
 def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
                  DVP, dvp_, up_sol, compiler_parameters, **namespace):
