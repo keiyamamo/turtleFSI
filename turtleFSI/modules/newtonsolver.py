@@ -101,18 +101,18 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         #     as_backend_type(A).mat().assemble()
         
         pc.setUp()
-        pc.view(pc_viewer)
-        pc_output = open("pc_output.txt", "r")
-        if MPI.rank(MPI.comm_world) == 0:
-            print(pc_output.read())
-            pc_output.close()
+        # pc.view(pc_viewer)
+        # pc_output = open("pc_output.txt", "r")
+        # if MPI.rank(MPI.comm_world) == 0:
+        #     print(pc_output.read())
+        #     pc_output.close()
 
         ksp.solve(as_backend_type(b).vec(), as_backend_type(dvp_res.vector().vec()))
-        ksp.view(ksp_viewer)
-        ksp_output = open("ksp_output.txt", "r")
-        if MPI.rank(MPI.comm_world) == 0:
-            print(ksp_output.read())
-            ksp_output.close()
+        # ksp.view(ksp_viewer)
+        # ksp_output = open("ksp_output.txt", "r")
+        # if MPI.rank(MPI.comm_world) == 0:
+        #     print(ksp_output.read())
+        #     ksp_output.close()
         if ksp.getConvergedReason() < 0:
             print(f"ksp failed to converge with converged reason: {ksp.getConvergedReason()}" if MPI.rank(MPI.comm_world) == 0 else None)
             A_petsc = as_backend_type(A).mat()
