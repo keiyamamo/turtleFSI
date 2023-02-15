@@ -114,9 +114,9 @@ def initiate(c_x, c_y, R, f_L, **namespace):
     drag_list = []
     lift_list = []
     time_list = []
-
+    memory_list = []
     return dict(displacement_x_list=displacement_x_list, displacement_y_list=displacement_y_list,
-                drag_list=drag_list, lift_list=lift_list, time_list=time_list, coord=coord)
+                drag_list=drag_list, lift_list=lift_list, time_list=time_list, memory_list=memory_list, coord=coord)
 
 
 class Inlet(UserExpression):
@@ -221,7 +221,7 @@ def peval(f, x):
 
 
 def post_solve(t, dvp_, coord, displacement_x_list, displacement_y_list, drag_list, lift_list, mu_f, n,
-               verbose, time_list, ds, dS, **namespace):
+               verbose, time_list, ds, dS, memory_list, **namespace):
     d = dvp_["n"].sub(0, deepcopy=True)
     v = dvp_["n"].sub(1, deepcopy=True)
     p = dvp_["n"].sub(2, deepcopy=True)
@@ -243,17 +243,26 @@ def post_solve(t, dvp_, coord, displacement_x_list, displacement_y_list, drag_li
     # displacement_y_list.append(d(coord)[1])
 
     # Print
-    if MPI.rank(MPI.comm_world) == 0 and verbose:
-        print("Distance x: {:e}".format(displacement_x_list[-1]))
-        print("Distance y: {:e}".format(displacement_y_list[-1]))
-        print("Drag: {:e}".format(drag_list[-1]))
-        print("Lift: {:e}".format(lift_list[-1]))
-
-
-def finished(results_folder, displacement_x_list, displacement_y_list, drag_list, lift_list, time_list, **namespace):
+    # if MPI.rank(MPI.comm_world) == 0 and verbose:
+    #     print("Distance x: {:e}".format(displacement_x_list[-1]))
+    #     print("Distance y: {:e}".format(displacement_y_list[-1]))
+    #     print("Drag: {:e}".format(drag_list[-1]))
+    #     print("Lift: {:e}".format(lift_list[-1]))
+    
+    # Check memory usage for debugging
+    memory_usage = getMemoryUsage()
     if MPI.rank(MPI.comm_world) == 0:
-        np.savetxt(path.join(results_folder, 'Lift.txt'), lift_list, delimiter=',')
-        np.savetxt(path.join(results_folder, 'Drag.txt'), drag_list, delimiter=',')
-        np.savetxt(path.join(results_folder, 'Time.txt'), time_list, delimiter=',')
-        np.savetxt(path.join(results_folder, 'dis_x.txt'), displacement_x_list, delimiter=',')
-        np.savetxt(path.join(results_folder, 'dis_y.txt'), displacement_y_list, delimiter=',')
+        print(f"Memory usage: {memory_usage} MB ")
+    memory_list.append(memory_usage)
+
+    return dict(memory_list=memory_list)
+    
+
+def finished(results_folder, displacement_x_list, displacement_y_list, drag_list, lift_list, time_list, memory_list, **namespace):
+    if MPI.rank(MPI.comm_world) == 0:
+        # np.savetxt(path.join(results_folder, 'Lift.txt'), lift_list, delimiter=',')
+        # np.savetxt(path.join(results_folder, 'Drag.txt'), drag_list, delimiter=',')
+        # np.savetxt(path.join(results_folder, 'Time.txt'), time_list, delimiter=',')
+        # np.savetxt(path.join(results_folder, 'dis_x.txt'), displacement_x_list, delimiter=',')
+        # np.savetxt(path.join(results_folder, 'dis_y.txt'), displacement_y_list, delimiter=',')
+        np.savetxt(path.join(results_folder, 'memory_usage.txt'), memory_list, delimiter=',')

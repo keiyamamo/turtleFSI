@@ -12,6 +12,8 @@ import pickle
 from pathlib import Path
 from xml.etree import ElementTree as ET
 import numpy as np
+import subprocess
+from os import getpid
 
 _compiler_parameters = dict(parameters["form_compiler"])
 _compiler_parameters.update({"quadrature_degree": 4, "optimize": True})
@@ -21,6 +23,20 @@ _compiler_parameters.update({"quadrature_degree": 4, "optimize": True})
 RED = "\033[1;37;31m%s\033[0m"
 BLUE = "\033[1;37;34m%s\033[0m"
 GREEN = "\033[1;37;32m%s\033[0m"
+
+
+def getMemoryUsage(rss=True):
+    """
+    rss : Resedential Set Size (default)
+    vsz : Virtual Memory Size
+    """
+    mypid = str(getpid())
+    rss = "rss" if rss else "vsz"
+    process = subprocess.Popen(['ps', '-o', rss, mypid],
+                                stdout=subprocess.PIPE)
+    out, _ = process.communicate()
+    mymemory = out.split()[1]
+    return eval(mymemory) / 1024
 
 
 def info_blue(s, check=True):
