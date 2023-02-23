@@ -200,3 +200,7 @@ def pre_solve(t, u_inflow_exp, p_out_bc_val, **namespace):
     u_inflow_exp.update(t)
     p_out_bc_val.t = t
     return dict(u_inflow_exp=u_inflow_exp, p_out_bc_val=p_out_bc_val)
+
+def post_solve(dt, dvp_, **namespace):
+    # compute acceleration of the solid
+    pass
