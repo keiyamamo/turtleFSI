@@ -12,12 +12,13 @@ def set_problem_parameters(default_variables, **namespace):
         nu=0.025,
         T=1,
         dt=0.001,
-        Nx=40, Ny=40,
+        Nx=20, Ny=20,
         folder="movingvortex_results",
         solid = "no_solid",
-        extrapolation="biharmonic",   
+        # extrapolation="biharmonic",   
+        extrapolation="laplace",   
         plot_interval=100,
-        save_step=10,
+        save_step=1,
         checkpoint_step=100,
         compute_error=100,
         L = 1.,
@@ -96,29 +97,28 @@ class analytical_pressure(UserExpression):
     def value_shape(self):
         return ()
 
+def top_right_front_point(x, on_boundary):
+    tol = DOLFIN_EPS
+    return (abs(x[0] - 0.5) < tol) and (abs(x[1] - 0.5) < tol)
+
 def create_bcs(DVP, mesh, boundaries, psi, F_fluid_nonlinear, **namespace):
     """
-    Apply pure DirichletBC for deformation, velocity, and pressure using analytical solution.
+    Apply pure DirichletBC for deformation, velocity using analytical solution.
     """
     bcs = []
     displacement = analytical_displacement()
     velocity = analytical_velocity()
+    p_bc_val = analytical_pressure()
     # Deformation is prescribed over the entire domain while the velocity is prescribed on the boundary
     d_bc = DirichletBC(DVP.sub(0), displacement, boundaries, 0)
     u_bc = DirichletBC(DVP.sub(1), velocity, boundaries, 1)
-    
+    # p_bc = DirichletBC(DVP.sub(2), Constant(0), top_right_front_point, method="pointwise")    
+    p_bc = DirichletBC(DVP.sub(2), p_bc_val, boundaries, 1)
     bcs.append(d_bc)
     bcs.append(u_bc)
-
-    p_bc_val = analytical_pressure()
-    # Modify variational form to include pressure BC
-    dsb =  Measure("ds", domain=mesh, subdomain_data=boundaries, subdomain_id=1)
-    n_ = FacetNormal(mesh)
+    bcs.append(p_bc)
     
-    # Add pressure as flux at boundary
-    F_fluid_nonlinear += p_bc_val * inner(n_, psi)*dsb
-   
-    return dict(bcs=bcs, F_fluid_nonlinear=F_fluid_nonlinear, velocity=velocity, displacement=displacement, p_bc_val=p_bc_val)
+    return dict(bcs=bcs,  velocity=velocity, displacement=displacement, p_bc_val=p_bc_val)
     
 def initiate(dvp_, DVP, **namespace):
     """
@@ -141,7 +141,7 @@ def initiate(dvp_, DVP, **namespace):
 
     return dict(dvp_=dvp_)
 
-def pre_solve(t, velocity, displacement, p_bc_val, **namespace):
+def pre_solve(t, velocity, displacement, p_bc_val, dvp_, DVP, **namespace):
     """
     update the boundary condition as boundary condition is time-dependent
     NOTE: it seems to work fine for updating the boundary condition
@@ -150,7 +150,7 @@ def pre_solve(t, velocity, displacement, p_bc_val, **namespace):
     displacement.t = t
     p_bc_val.t = t
 
-    return dict(velocity=velocity, displacement=displacement, p_bc_val=p_bc_val)
+    return dict(velocity=velocity, displacement=displacement, p_bc_val=p_bc_val, dvpp_=dvp_)
 
 def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, displacement, velocity, p_bc_val, **namespace):
     """
@@ -169,22 +169,28 @@ def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, displacement, veloci
     den = norm(de.vector())
     de.vector().axpy(-1, d.vector())
     error_d = norm(de.vector()) / den
-    print("deformation error:", error_d)
+    
     # compute error for the velocity 
     ven = norm(ve.vector())
     ve.vector().axpy(-1, v.vector())
     error_v = norm (ve.vector()) / ven
-    print("velocity error:", error_v)
+    
     total_error_v += error_v*dt
     # compute error for the pressure
     pen = norm(pe.vector())
     pe.vector().axpy(-1, p.vector())
     error_p = norm (pe.vector()) / pen
-    print("pressure error:", error_p)
+    
     total_error_p += error_p*dt
 
+    if MPI.rank(MPI.comm_world) == 0:
+        print("deformation error:", error_d)
+        print("velocity error:", error_v)
+        print("pressure error:", error_p)
+  
     return dict(total_error_v=total_error_v, total_error_p=total_error_p)                 
       
 def finished(total_error_v, total_error_p, **namespace):
-    print("total error for the velocity: ", total_error_v)
-    print("total error for the pressure: ", total_error_p)
+    if MPI.rank(MPI.comm_world) == 0:
+        print("total error for the velocity: ", total_error_v)
+        print("total error for the pressure: ", total_error_p)
