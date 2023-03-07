@@ -3,7 +3,7 @@
 # the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 # PURPOSE.
 
-from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions
+from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions, normalize
 
 PETScOptions.set("mat_mumps_icntl_4", 1) # If negatvie or zero, MUMPS will suppress diagnositc printining, statistics, and warning messages. 
 PETScOptions.set("mat_mumps_icntl_14", 400) # allocate more memory to mumps
@@ -83,6 +83,8 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         up_sol.solve(dvp_res.vector(), b)
         dvp_["n"].vector().axpy(lmbda, dvp_res.vector())
         [bc.apply(dvp_["n"].vector()) for bc in bcs]
+        normalize(dvp_["n"].sub(2, deepcopy=True).vector())
+        
 
         # Reset residuals
         last_residual = residual

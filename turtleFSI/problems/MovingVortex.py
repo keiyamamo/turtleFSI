@@ -16,7 +16,7 @@ def set_problem_parameters(default_variables, **namespace):
         folder="movingvortex_results",
         solid = "no_solid",
         # extrapolation="biharmonic",   
-        extrapolation="laplace",   
+        extrapolation="no_extrapolation", # first try with static mesh
         plot_interval=100,
         save_step=1,
         checkpoint_step=100,
@@ -101,6 +101,13 @@ def top_right_front_point(x, on_boundary):
     tol = DOLFIN_EPS
     return (abs(x[0] - 0.5) < tol) and (abs(x[1] - 0.5) < tol)
 
+def p_zero(x, on_boundary):
+    return near(x[0], 0.25) and near(x[1], 0.5) 
+
+def outflow(x, on_boundary):
+    tol = DOLFIN_EPS
+    return on_boundary and ( ((x[0] > tol) and near(x[1], 0.5)) or ((x[1] < tol) and near(x[0], 0.5)) or ((x[0] < tol) and near(x[1], -0.5)) or ((x[1] > tol) and near(x[0], -0.5)))
+
 def create_bcs(DVP, mesh, boundaries, psi, F_fluid_nonlinear, **namespace):
     """
     Apply pure DirichletBC for deformation, velocity using analytical solution.
@@ -110,11 +117,12 @@ def create_bcs(DVP, mesh, boundaries, psi, F_fluid_nonlinear, **namespace):
     velocity = analytical_velocity()
     p_bc_val = analytical_pressure()
     # Deformation is prescribed over the entire domain while the velocity is prescribed on the boundary
-    d_bc = DirichletBC(DVP.sub(0), displacement, boundaries, 0)
+    # d_bc = DirichletBC(DVP.sub(0), displacement, boundaries, 0)
     u_bc = DirichletBC(DVP.sub(1), velocity, boundaries, 1)
-    # p_bc = DirichletBC(DVP.sub(2), Constant(0), top_right_front_point, method="pointwise")    
-    p_bc = DirichletBC(DVP.sub(2), p_bc_val, boundaries, 1)
-    bcs.append(d_bc)
+    p_bc = DirichletBC(DVP.sub(2), Constant(0), p_zero, method="pointwise")    
+    # p_bc = DirichletBC(DVP.sub(2), p_bc_val, outflow)
+    
+    # bcs.append(d_bc)
     bcs.append(u_bc)
     bcs.append(p_bc)
     
@@ -128,12 +136,12 @@ def initiate(dvp_, DVP, **namespace):
     inital_velocity = analytical_velocity()
     inital_pressure = analytical_pressure()
     # generate functions of the initial solution from expressions
-    di = interpolate(inital_deformation, DVP.sub(0).collapse())
+    # di = interpolate(inital_deformation, DVP.sub(0).collapse())
     ui = interpolate(inital_velocity, DVP.sub(1).collapse())
     pi = interpolate(inital_pressure, DVP.sub(2).collapse())
     # assign the initial solution to dvp_
-    assign(dvp_["n"].sub(0), di)
-    assign(dvp_["n-1"].sub(0), di)
+    # assign(dvp_["n"].sub(0), di)
+    # assign(dvp_["n-1"].sub(0), di)
     assign(dvp_["n"].sub(1), ui)
     assign(dvp_["n-1"].sub(1), ui)
     assign(dvp_["n"].sub(2), pi)
@@ -147,10 +155,11 @@ def pre_solve(t, velocity, displacement, p_bc_val, dvp_, DVP, **namespace):
     NOTE: it seems to work fine for updating the boundary condition
     """ 
     velocity.t = t
-    displacement.t = t
+    # displacement.t = t
     p_bc_val.t = t
 
-    return dict(velocity=velocity, displacement=displacement, p_bc_val=p_bc_val, dvpp_=dvp_)
+    # return dict(velocity=velocity, displacement=displacement, p_bc_val=p_bc_val, dvpp_=dvp_)
+    return dict(velocity=velocity, p_bc_val=p_bc_val, dvpp_=dvp_)
 
 def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, displacement, velocity, p_bc_val, **namespace):
     """
@@ -160,15 +169,15 @@ def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, displacement, veloci
     d = dvp_["n"].sub(0, deepcopy=True)
     v = dvp_["n"].sub(1, deepcopy=True)
     p = dvp_["n"].sub(2, deepcopy=True) 
-
-    de = interpolate(displacement, DVP.sub(1).collapse())
+    
+    # de = interpolate(displacement, DVP.sub(1).collapse())
     ve = interpolate(velocity, DVP.sub(1).collapse())
     pe = interpolate(p_bc_val, DVP.sub(2).collapse()) 
 
     # compute error for the deformation
-    den = norm(de.vector())
-    de.vector().axpy(-1, d.vector())
-    error_d = norm(de.vector()) / den
+    # den = norm(de.vector())
+    # de.vector().axpy(-1, d.vector())
+    # error_d = norm(de.vector()) / den
     
     # compute error for the velocity 
     ven = norm(ve.vector())
@@ -184,7 +193,7 @@ def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, displacement, veloci
     total_error_p += error_p*dt
 
     if MPI.rank(MPI.comm_world) == 0:
-        print("deformation error:", error_d)
+        # print("deformation error:", error_d)
         print("velocity error:", error_v)
         print("pressure error:", error_p)
   
