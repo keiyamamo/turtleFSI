@@ -13,9 +13,8 @@ def set_problem_parameters(default_variables, **namespace):
         T=1,
         dt=0.001,
         Nx=20, Ny=20,
-        folder="movingvortex_results",
+        folder="tg2d_results",
         solid = "no_solid",
-        # extrapolation="biharmonic",   
         extrapolation="no_extrapolation", # first try with static mesh
         plot_interval=100,
         save_step=1,
@@ -54,7 +53,7 @@ class analytical_displacement(UserExpression):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.t = 0
-        self.nu = 0.025
+        self.nu = 0.01
         self.L = 1.
         self.A = 0.08
         self.T_G = 4
@@ -70,7 +69,7 @@ class analytical_velocity(UserExpression):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.t = 0
-        self.nu = 0.025
+        self.nu = 0.01
     
     def eval(self, value, x):
         value[0] = -sin(pi*x[1])*cos(pi*x[0])*exp(-2.*pi*pi*self.nu*self.t)
@@ -83,7 +82,7 @@ class analytical_pressure(UserExpression):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.t = 0
-        self.nu = 0.025
+        self.nu = 0.01
 
     def eval(self, value, x):
         value[0] = -(cos(2*pi*x[0])+cos(2*pi*x[1]))*exp(-4.*pi*pi*self.nu*self.t)/4.
@@ -95,7 +94,6 @@ def top_right_front_point(x, on_boundary):
     tol = DOLFIN_EPS
     return near(x[0], 1.0, tol) and near(x[1], 1.0, tol)
  
-
 
 def create_bcs(DVP, mesh, boundaries, psi, F_fluid_nonlinear, **namespace):
     """
@@ -109,7 +107,6 @@ def create_bcs(DVP, mesh, boundaries, psi, F_fluid_nonlinear, **namespace):
     # d_bc = DirichletBC(DVP.sub(0), displacement, boundaries, 0)
     u_bc = DirichletBC(DVP.sub(1), velocity, boundaries, 1)
     p_bc = DirichletBC(DVP.sub(2), p_bc_val, top_right_front_point, method="pointwise")    
-    # p_bc = DirichletBC(DVP.sub(2), p_bc_val, outflow)
     
     # bcs.append(d_bc)
     bcs.append(u_bc)

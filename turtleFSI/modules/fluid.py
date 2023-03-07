@@ -20,7 +20,7 @@ def fluid_setup(v_, p_, d_, psi, gamma, dx_f, dx_f_id_list, fluid_properties, k,
 
     F_fluid_linear = 0
     F_fluid_nonlinear = 0
-
+    
     for fluid_region in range(len(dx_f_id_list)):
         rho_f = fluid_properties[fluid_region]["rho_f"]
         mu_f = fluid_properties[fluid_region]["mu_f"]
@@ -29,6 +29,7 @@ def fluid_setup(v_, p_, d_, psi, gamma, dx_f, dx_f_id_list, fluid_properties, k,
         # computation of the Jacobian matrix.
     
         # Temporal derivative
+        # NOTE: same as equation (5.5) p57 in WickPhD
         F_fluid_nonlinear += rho_f / k * inner(J_(d_["n"]) * theta0 * (v_["n"] - v_["n-1"]), psi) * dx_f[fluid_region]
         F_fluid_linear += rho_f / k * inner(J_(d_["n-1"]) * theta1 * (v_["n"] - v_["n-1"]), psi) * dx_f[fluid_region]
     
