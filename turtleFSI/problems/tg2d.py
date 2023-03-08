@@ -39,7 +39,6 @@ class Wall(SubDomain):
 
 def get_mesh_domain_and_boundaries(L, Nx, Ny, **namespace):
     mesh = RectangleMesh(Point(-L / 2, -L / 2), Point(L / 2, L / 2), Nx, Ny)
-    from IPython import embed; embed(); exit(1)
     # Mark the boundaries
     Allboundaries = DomainBoundary()
     boundaries = MeshFunction("size_t", mesh, mesh.geometry().dim() - 1)
