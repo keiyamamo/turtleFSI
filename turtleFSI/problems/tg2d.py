@@ -9,15 +9,16 @@ Date: 2022-10-10
 # Override some problem specific parameters
 def set_problem_parameters(default_variables, **namespace):
     default_variables.update(dict(
-        nu=0.01,
+        mu_f=0.01, # dynamic viscosity of fluid, 0.01 as kinematic viscosity
         T=1,
         dt=0.001,
+        rho_f = 1,
         Nx=20, Ny=20,
         folder="tg2d_results",
         solid = "no_solid",
         extrapolation="no_extrapolation", # first try with static mesh
         plot_interval=100,
-        save_step=1,
+        save_step=10,
         checkpoint_step=100,
         compute_error=100,
         L = 2.,
@@ -105,10 +106,11 @@ def create_bcs(DVP, mesh, boundaries, psi, F_fluid_nonlinear, **namespace):
     p_bc_val = analytical_pressure()
     # Deformation is prescribed over the entire domain while the velocity is prescribed on the boundary
     # d_bc = DirichletBC(DVP.sub(0), displacement, boundaries, 0)
+    d_bc = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, 1)
     u_bc = DirichletBC(DVP.sub(1), velocity, boundaries, 1)
     p_bc = DirichletBC(DVP.sub(2), p_bc_val, top_right_front_point, method="pointwise")    
     
-    # bcs.append(d_bc)
+    bcs.append(d_bc)
     bcs.append(u_bc)
     bcs.append(p_bc)
     
@@ -128,14 +130,14 @@ def initiate(dvp_, DVP, **namespace):
     # assign the initial solution to dvp_
     # assign(dvp_["n"].sub(0), di)
     # assign(dvp_["n-1"].sub(0), di)
-    assign(dvp_["n"].sub(1), ui)
+    # assign(dvp_["n"].sub(1), ui)
     assign(dvp_["n-1"].sub(1), ui)
-    assign(dvp_["n"].sub(2), pi)
+    # assign(dvp_["n"].sub(2), pi)
     assign(dvp_["n-1"].sub(2), pi)
 
     return dict(dvp_=dvp_)
 
-def pre_solve(t, velocity, displacement, p_bc_val, dvp_, DVP, **namespace):
+def pre_solve(t, velocity, displacement, p_bc_val, **namespace):
     """
     update the boundary condition as boundary condition is time-dependent
     NOTE: it seems to work fine for updating the boundary condition
@@ -145,7 +147,7 @@ def pre_solve(t, velocity, displacement, p_bc_val, dvp_, DVP, **namespace):
     p_bc_val.t = t
 
     # return dict(velocity=velocity, displacement=displacement, p_bc_val=p_bc_val, dvpp_=dvp_)
-    return dict(velocity=velocity, p_bc_val=p_bc_val, dvpp_=dvp_)
+    return dict(velocity=velocity, p_bc_val=p_bc_val)
 
 def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, displacement, velocity, p_bc_val, **namespace):
     """
