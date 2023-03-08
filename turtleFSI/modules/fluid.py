@@ -4,8 +4,7 @@
 # PURPOSE.
 
 from turtleFSI.modules import *
-from dolfin import Constant, inner, inv, grad, div
-
+from dolfin import Constant, inner, inv, grad, div, nabla_grad, dot
 
 def fluid_setup(v_, p_, d_, psi, gamma, dx_f, dx_f_id_list, fluid_properties, k, theta, **namespace):
     """
@@ -24,7 +23,6 @@ def fluid_setup(v_, p_, d_, psi, gamma, dx_f, dx_f_id_list, fluid_properties, k,
     for fluid_region in range(len(dx_f_id_list)):
         rho_f = fluid_properties[fluid_region]["rho_f"]
         mu_f = fluid_properties[fluid_region]["mu_f"]
-
         # Note that we here split the equation into a linear and nonlinear part for faster
         # computation of the Jacobian matrix.
     
@@ -46,7 +44,7 @@ def fluid_setup(v_, p_, d_, psi, gamma, dx_f, dx_f_id_list, fluid_properties, k,
                                    inv(F_(d_["n"])).T, grad(psi)) * dx_f[fluid_region]
     
         # Stress from velocity
-        # TODO: need to check
+        # The second term of hat(A)_E(hat(U))(hat(Psi)) in eq (5.5) p57 in WickPhD
         F_fluid_nonlinear += theta0 * inner(J_(d_["n"]) * sigma_f_u(v_["n"], d_["n"], mu_f) *
                                             inv(F_(d_["n"])).T, grad(psi)) * dx_f[fluid_region]
         F_fluid_linear += theta1 * inner(J_(d_["n-1"]) * sigma_f_u(v_["n-1"], d_["n-1"], mu_f)
@@ -57,14 +55,12 @@ def fluid_setup(v_, p_, d_, psi, gamma, dx_f, dx_f_id_list, fluid_properties, k,
         F_fluid_nonlinear += inner(div(J_(d_["n"]) * inv(F_(d_["n"])) * v_["n"]), gamma) * dx_f[fluid_region]
     
         # ALE term
+        # The second term of eq (5.5) p57 in WickPhD
         # NOTE: The original formulation is:
-        # F_fluid_nonlinear -= rho_f / k * inner(J_(d_["n"]) * grad(v_["n"]) * inv(F_(d_["n"])) *
-        #                                    (d_["n"] - d_["n-1"]), psi) * dx_f[fluid_region]
-        # NOTE: However, this formualation seems incorrect, as it misinterprets the grad and nabla_grad operators. 
-        #       grad should be used for the J * inv(F) * (d_["n"] - d_["n-1"] and not the v_["n"].
-
+        F_fluid_nonlinear -= rho_f / k * inner(J_(d_["n"]) * grad(v_["n"]) * inv(F_(d_["n"])) *
+                                           (d_["n"] - d_["n-1"]), psi) * dx_f[fluid_region]
+       
         # NOTE: The correct formulation is (?):
-        F_fluid_nonlinear -= rho_f / k * inner(grad(J_(d_["n"]) * inv(F_(d_["n"])) *
-                                           (d_["n"] - d_["n-1"])) * v_["n"], psi) * dx_f[fluid_region]
+        # F_fluid_nonlinear -= rho_f / k * inner(dot(J_(d_["n"]) * inv(F_(d_["n"])) * (d_["n"] - d_["n-1"]) , nabla_grad(v_["n"])), psi) * dx_f[fluid_region]
 
     return dict(F_fluid_linear=F_fluid_linear, F_fluid_nonlinear=F_fluid_nonlinear)
