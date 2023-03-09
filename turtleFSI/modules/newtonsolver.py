@@ -3,8 +3,10 @@
 # the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 # PURPOSE.
 
-from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI
+from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions
 
+PETScOptions.set("mat_mumps_icntl_14", 200)
+PETScOptions.set("mat_mumps_icntl_4", 1) 
 
 def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
                  DVP, dvp_, up_sol, compiler_parameters, **namespace):

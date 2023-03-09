@@ -10,10 +10,11 @@ Date: 2022-10-10
 def set_problem_parameters(default_variables, **namespace):
     default_variables.update(dict(
         mu_f=0.01, # dynamic viscosity of fluid, 0.01 as kinematic viscosity
-        T=1,
-        dt=0.001,
+        T=6,
+        dt=0.03125,
+        theta=0.5,
         rho_f = 1,
-        Nx=160, Ny=160,
+        Nx=100, Ny=100,
         folder="tg2d_results",
         solid = "no_solid",
         extrapolation="no_extrapolation", # first try with static mesh
@@ -22,11 +23,9 @@ def set_problem_parameters(default_variables, **namespace):
         checkpoint_step=100,
         compute_error=100,
         L = 2.,
-        T_G = 4,
-        A_value = 0.08,
-        d_deg=2,
-        v_deg=2,
-        p_deg=1,
+        v_deg=4,
+        d_deg=4,
+        p_deg=3,
         total_error_v = 0,
         total_error_p = 0
         ))
