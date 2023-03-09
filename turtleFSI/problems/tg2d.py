@@ -19,8 +19,8 @@ This problem can be used to test the accuracy of the fluid solver
 def set_problem_parameters(default_variables, **namespace):
     default_variables.update(dict(
         mu_f=0.01, # dynamic viscosity of fluid, 0.01 as kinematic viscosity
-        T=0.01,
-        dt=0.1,
+        T=1,
+        dt=0.015625,
         theta=0.5, # Crank-Nicolson
         rho_f = 1, # density of fluid
         folder="tg2d_results",
@@ -37,15 +37,11 @@ def set_problem_parameters(default_variables, **namespace):
         rtol=1e-10,
         total_error_v = 0,
         total_error_p = 0,
-        mesh_size=0.2,
+        mesh_size=0.25,
         mesh_type="unstructured",
         ))
 
     return default_variables
-
-class Wall(SubDomain):
-        def inside(self, x, on_boundary):
-            return on_boundary
 
 def create2Dmesh(msh):
     # remove z coordinate
@@ -72,17 +68,24 @@ def fac_mesh(mesh_size):
         mesh = create2Dmesh(mesh)
     return mesh
 
+class Wall(SubDomain):
+        def inside(self, x, on_boundary):
+            return on_boundary
+
 def get_mesh_domain_and_boundaries(mesh_size, mesh_type, **namespace):
     """
     Here, we create unstructured mesh using gmsh. 
     If pygmsh is not installed, we use default mesh from dolfin, which is structured.
+
     args:
         mesh_size: scaling factor for mesh size in gmsh. The lower the value, the finer the mesh.
     """
     if "pygmsh" in sys.modules and mesh_type == "unstructured":
         mesh = fac_mesh(mesh_size)
+        # In case of MPI, redistribute the mesh to all processors
+        MeshPartitioning.build_distributed_mesh(mesh)
     else:
-        mesh = RectangleMesh(Point(-1, -1), Point(1, 1), 10, 10)
+        mesh = RectangleMesh(Point(-1, -1), Point(1, 1), 20, 20)
       
     # Mark the boundaries
     Allboundaries = DomainBoundary()
@@ -161,7 +164,6 @@ def initiate(dvp_, DVP, **namespace):
 def pre_solve(t, velocity, p_bc_val, **namespace):
     """
     update the boundary condition as boundary condition is time-dependent
-    NOTE: it seems to work fine for updating the boundary condition
     """ 
     velocity.t = t
     p_bc_val.t = t
@@ -176,7 +178,6 @@ def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, velocity, p_bc_val, 
     v = dvp_["n"].sub(1, deepcopy=True)
     p = dvp_["n"].sub(2, deepcopy=True) 
     
-    # de = interpolate(displacement, DVP.sub(1).collapse())
     ve = interpolate(velocity, DVP.sub(1).collapse())
     pe = interpolate(p_bc_val, DVP.sub(2).collapse()) 
     E_v = errornorm(ve, v, norm_type="L2")
@@ -186,7 +187,6 @@ def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, velocity, p_bc_val, 
     total_error_p += E_p*dt
 
     if MPI.rank(MPI.comm_world) == 0:
-        # print("deformation error:", error_d)
         print("velocity error:", E_v)
         print("pressure error:", E_p)
   
