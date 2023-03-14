@@ -39,6 +39,7 @@ def set_problem_parameters(default_variables, **namespace):
         total_error_p = 0,
         mesh_size=0.25,
         mesh_type="unstructured",
+        external_mesh=True
         ))
 
     return default_variables
@@ -72,7 +73,7 @@ class Wall(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary
 
-def get_mesh_domain_and_boundaries(mesh_size, mesh_type, **namespace):
+def get_mesh_domain_and_boundaries(mesh_size, mesh_type, external_mesh, **namespace):
     """
     Here, we create unstructured mesh using gmsh. 
     If pygmsh is not installed, we use default mesh from dolfin, which is structured.
@@ -80,7 +81,12 @@ def get_mesh_domain_and_boundaries(mesh_size, mesh_type, **namespace):
     args:
         mesh_size: scaling factor for mesh size in gmsh. The lower the value, the finer the mesh.
     """
-    if "pygmsh" in sys.modules and mesh_type == "unstructured":
+    if external_mesh:
+        mesh = Mesh()
+        with XDMFFile("mesh/UnitSquare/unitsquare.xdmf") as infile:
+            infile.read(mesh)
+        info_blue("Loaded external mesh")
+    elif "pygmsh" in sys.modules and mesh_type == "unstructured":
         mesh = fac_mesh(mesh_size)
         # In case of MPI, redistribute the mesh to all processors
         MeshPartitioning.build_distributed_mesh(mesh)
