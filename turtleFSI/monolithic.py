@@ -163,6 +163,9 @@ while t <= T + dt / 10 and not stop:  # + dt / 10 is a hack to ensure that we ta
 
     # Solve
     vars().update(newtonsolver(**vars()))
+    # NOTE: To compute acceleration term inside post_solve function, 
+    #       we need to place post_solve right after newtonsolver
+    tmp_dict = post_solve(**vars())
 
     # Update vectors
     for i, t_tmp in enumerate(times[:-1]):
@@ -170,7 +173,6 @@ while t <= T + dt / 10 and not stop:  # + dt / 10 is a hack to ensure that we ta
         dvp_[t_tmp].vector().axpy(1, dvp_[times[i+1]].vector())
 
     # After solve hook
-    tmp_dict = post_solve(**vars())
     if tmp_dict is not None:
         vars().update(tmp_dict)
 
