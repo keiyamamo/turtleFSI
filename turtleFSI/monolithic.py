@@ -150,11 +150,12 @@ if restart_folder is not None:
 
 timer = Timer("Total simulation time")
 timer.start()
-previous_t = 0.0
+
+previous_t = 0.0 # elapsed compute time, seems to be unused?
 stop = False
 first_step_num = counter # This is so that the solver will recompute the jacobian on the first step of the simulation
 while t <= T + dt / 10 and not stop:  # + dt / 10 is a hack to ensure that we take the final time step t == T
-    t += dt
+
 
     # Pre solve hook
     tmp_dict = pre_solve(**vars())
@@ -182,8 +183,8 @@ while t <= T + dt / 10 and not stop:  # + dt / 10 is a hack to ensure that we ta
     if counter % save_step == 0:
         vars().update(save_files_visualization(**vars()))
 
-    # Update the time step counter
-    counter += 1
+
+
 
     # Print time per time step
     if MPI.rank(MPI.comm_world) == 0:
@@ -200,6 +201,10 @@ while t <= T + dt / 10 and not stop:  # + dt / 10 is a hack to ensure that we ta
     if killturtle:
         checkpoint(**vars())
         stop = True
+
+    # Update the time step counter
+    counter += 1
+    t += dt
 
 # Print total time
 timer.stop()
