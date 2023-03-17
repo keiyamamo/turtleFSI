@@ -12,7 +12,7 @@ Springer, Berlin, Heidelberg, 2006. 371-385."""
 from dolfin import *
 import numpy as np
 from os import path
-import stress_strain as StrStr
+import turleFSI.problems.Test_Material.stress_strain as StrStr
 
 from turtleFSI.problems import *
 
