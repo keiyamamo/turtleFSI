@@ -39,7 +39,8 @@ def set_problem_parameters(default_variables, **namespace):
         total_error_p = 0,
         mesh_size=0.25,
         mesh_type="unstructured",
-        external_mesh=True
+        external_mesh=False,
+        N =10 # number of points along x or y axis when creating structured mesh
         ))
 
     return default_variables
@@ -73,7 +74,7 @@ class Wall(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary
 
-def get_mesh_domain_and_boundaries(mesh_size, mesh_type, external_mesh, **namespace):
+def get_mesh_domain_and_boundaries(mesh_size, mesh_type, external_mesh, N,**namespace):
     """
     Here, we create unstructured mesh using gmsh. 
     If pygmsh is not installed, we use default mesh from dolfin, which is structured.
@@ -87,11 +88,13 @@ def get_mesh_domain_and_boundaries(mesh_size, mesh_type, external_mesh, **namesp
             infile.read(mesh)
         info_blue("Loaded external mesh")
     elif "pygmsh" in sys.modules and mesh_type == "unstructured":
+        info_blue("Creating unstructured mesh")
         mesh = fac_mesh(mesh_size)
         # In case of MPI, redistribute the mesh to all processors
         MeshPartitioning.build_distributed_mesh(mesh)
     else:
-        mesh = RectangleMesh(Point(-1, -1), Point(1, 1), 20, 20)
+        info_blue("Creating structured mesh")
+        mesh = RectangleMesh(Point(-1, -1), Point(1, 1), N, N, "right")
       
     # Mark the boundaries
     Allboundaries = DomainBoundary()
@@ -192,17 +195,17 @@ def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, velocity, p_bc_val, 
     total_error_v += E_v*dt
     total_error_p += E_p*dt
 
-    if MPI.rank(MPI.comm_world) == 0:
-        print("velocity error:", E_v)
-        print("pressure error:", E_p)
+    # if MPI.rank(MPI.comm_world) == 0:
+    #     print("velocity error:", E_v)
+    #     print("pressure error:", E_p)
   
     return dict(total_error_v=total_error_v, total_error_p=total_error_p)                 
       
 def finished(total_error_v, total_error_p, mesh_size, dt, results_folder, **namespace):
 
     if MPI.rank(MPI.comm_world) == 0:
-        print("total error for the velocity: ", total_error_v)
-        print("total error for the pressure: ", total_error_p)
+        print(f"total error for the velocity: {total_error_v:2.6e}")
+        print(f"total error for the pressure: {total_error_p:2.6e}")
 
     save_data = dict(total_error_v=total_error_v, total_error_p=total_error_p, mesh_size=mesh_size, dt=dt)
     file_name = f'mesh_size_{mesh_size}_dt_{dt}.pickle'
