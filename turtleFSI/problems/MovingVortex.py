@@ -1,9 +1,12 @@
 from turtleFSI.problems import *
 from dolfin import *
 
+import pickle
+from os import path
+
 """
-Note: Pressure is far from correct, but the velocity beahves nicely. Pressure gets wrong inside newton loop.
-Date: 2022-10-10
+Note: Pressure is far from correct, but the velocity beahves nicely. Pressure gets wrong inside newton loop. (2022-10-10)
+      Pressure is better now, but the deformation is still wrong. (2023-03-21) 
 """
 
 # Override some problem specific parameters
@@ -13,11 +16,10 @@ def set_problem_parameters(default_variables, **namespace):
         rho_f=1,
         T=1,
         dt=0.001,
-        Nx=40, Ny=40,
+        Nx=20, Ny=20,
         folder="movingvortex_results",
         solid = "no_solid",
-        extrapolation="laplace",   
-        # extrapolation="no_extrapolation", # first try with static mesh
+        extrapolation="elastic",   
         plot_interval=100,
         save_step=1,
         checkpoint_step=100,
@@ -28,6 +30,7 @@ def set_problem_parameters(default_variables, **namespace):
         d_deg=2,
         v_deg=2,
         p_deg=1,
+        total_error_d =0,
         total_error_v = 0,
         total_error_p = 0
         ))
@@ -99,10 +102,19 @@ class analytical_pressure(UserExpression):
         return ()
 
 def top_right_front_point(x, on_boundary):
+    """
+    This is actually not a good way to enforce the boundary condition.
+    This point could be not on the node of the mesh and the boundary condition wouldn't be enforced.
+    For example, Nx=10 and Ny=10, the point (0.25, 0.5) is not on the node of the mesh.
+    """
     tol = DOLFIN_EPS
     return (abs(x[0] - 0.5) < tol) and (abs(x[1] - 0.5) < tol)
 
 def p_zero(x, on_boundary):
+    """
+    Since we only have Neumann boundary condition for pressure, 
+    we need to enforce p=0 on the boundary to make the problem well-posed.
+    """
     return near(x[0], 0.25) and near(x[1], 0.5) 
 
 def outflow(x, on_boundary):
@@ -117,11 +129,10 @@ def create_bcs(DVP, mesh, boundaries, psi, F_fluid_nonlinear, **namespace):
     displacement = analytical_displacement()
     velocity = analytical_velocity()
     p_bc_val = analytical_pressure()
-    # Deformation is prescribed over the entire domain while the velocity is prescribed on the boundary
+    
     d_bc = DirichletBC(DVP.sub(0), displacement, boundaries, 1)
     u_bc = DirichletBC(DVP.sub(1), velocity, boundaries, 1)
-    p_bc = DirichletBC(DVP.sub(2), Constant(0), p_zero, method="pointwise")    
-    # p_bc = DirichletBC(DVP.sub(2), p_bc_val, outflow)
+    p_bc = DirichletBC(DVP.sub(2), Constant(0), p_zero, method="pointwise")
     
     bcs.append(d_bc)
     bcs.append(u_bc)
@@ -159,10 +170,9 @@ def pre_solve(t, velocity, displacement, p_bc_val, dvp_, DVP, **namespace):
     displacement.t = t
     p_bc_val.t = t
 
-    # return dict(velocity=velocity, displacement=displacement, p_bc_val=p_bc_val, dvpp_=dvp_)
-    return dict(velocity=velocity, p_bc_val=p_bc_val, dvpp_=dvp_)
+    return dict(velocity=velocity, displacement=displacement, p_bc_val=p_bc_val, dvpp_=dvp_)
 
-def post_solve(DVP, dt, dvp_, t, total_error_v, total_error_p, displacement, velocity, p_bc_val, **namespace):
+def post_solve(DVP, dt, dvp_, t, total_error_d, total_error_v, total_error_p, displacement, velocity, p_bc_val, **namespace):
     """
     Compute errors after solving 
     """
@@ -171,26 +181,17 @@ def post_solve(DVP, dt, dvp_, t, total_error_v, total_error_p, displacement, vel
     v = dvp_["n"].sub(1, deepcopy=True)
     p = dvp_["n"].sub(2, deepcopy=True) 
     
-    de = interpolate(displacement, DVP.sub(1).collapse())
+    de = interpolate(displacement, DVP.sub(0).collapse())
     ve = interpolate(velocity, DVP.sub(1).collapse())
     pe = interpolate(p_bc_val, DVP.sub(2).collapse()) 
-
+    
     # compute error for the deformation
-    den = norm(de.vector())
-    de.vector().axpy(-1, d.vector())
-    error_d = norm(de.vector()) / den
+    error_d = errornorm(de, d, norm_type="L2")
+    error_v = errornorm(ve, v, norm_type="L2")
+    error_p = errornorm(pe, p, norm_type="L2")
     
-    # compute error for the velocity 
-    ven = norm(ve.vector())
-    ve.vector().axpy(-1, v.vector())
-    error_v = norm (ve.vector()) / ven
-    
+    total_error_d += error_d*dt
     total_error_v += error_v*dt
-    # compute error for the pressure
-    pen = norm(pe.vector())
-    pe.vector().axpy(-1, p.vector())
-    error_p = norm (pe.vector()) / pen
-    
     total_error_p += error_p*dt
 
     if MPI.rank(MPI.comm_world) == 0:
@@ -198,9 +199,15 @@ def post_solve(DVP, dt, dvp_, t, total_error_v, total_error_p, displacement, vel
         print("velocity error:", error_v)
         print("pressure error:", error_p)
   
-    return dict(total_error_v=total_error_v, total_error_p=total_error_p)                 
+    return dict(total_error_d=total_error_d, total_error_v=total_error_v, total_error_p=total_error_p)                 
       
-def finished(total_error_v, total_error_p, **namespace):
+def finished(total_error_d, total_error_v, total_error_p, dt, results_folder, **namespace):
     if MPI.rank(MPI.comm_world) == 0:
+        print("total error for the deformation: ", total_error_d)
         print("total error for the velocity: ", total_error_v)
         print("total error for the pressure: ", total_error_p)
+    
+    save_data = dict(total_error_d=total_error_d, total_error_v=total_error_v, total_error_p=total_error_p, dt=dt)
+    file_name = f'results_dt_{dt}.pickle'
+    with open(path.join(results_folder, file_name), 'wb') as f:
+        pickle.dump(save_data, f)
