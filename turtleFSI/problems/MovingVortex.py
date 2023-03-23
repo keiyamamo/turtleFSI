@@ -6,7 +6,9 @@ from os import path
 
 """
 Note: Pressure is far from correct, but the velocity beahves nicely. Pressure gets wrong inside newton loop. (2022-10-10)
-      Pressure is better now, but the deformation is still wrong. (2023-03-21) 
+      Pressure is better now, but the deformation is still wrong. (2023-03-21)
+      The unique point of this problem is that the domain is moving at the outflow boundary, which has never been the case before.
+      For  
 """
 
 # Override some problem specific parameters
