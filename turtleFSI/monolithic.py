@@ -155,7 +155,6 @@ stop = False
 first_step_num = counter # This is so that the solver will recompute the jacobian on the first step of the simulation
 while t <= T - dt / 10 and not stop:  # + dt / 10 is a hack to ensure that we take the final time step t == T
     t += dt
-    counter += 1
 
     # Pre solve hook
     tmp_dict = pre_solve(**vars())
@@ -184,7 +183,7 @@ while t <= T - dt / 10 and not stop:  # + dt / 10 is a hack to ensure that we ta
         vars().update(save_files_visualization(**vars()))
 
     # Update the time step counter
-    # counter += 1
+    counter += 1
 
     # Print time per time step
     if MPI.rank(MPI.comm_world) == 0:
