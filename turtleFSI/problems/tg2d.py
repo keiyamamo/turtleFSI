@@ -27,8 +27,8 @@ def set_problem_parameters(default_variables, **namespace):
         solid = "no_solid",
         extrapolation="no_extrapolation", # first try with static mesh
         plot_interval=100,
-        save_step=10,
-        checkpoint_step=100,
+        save_step=500,
+        checkpoint_step=500,
         compute_error=100,
         L = 2.,
         v_deg=2,
