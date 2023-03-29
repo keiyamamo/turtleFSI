@@ -18,12 +18,13 @@ def set_problem_parameters(default_variables, **namespace):
         rho_f=1,
         T=1,
         dt=0.001,
-        Nx=20, Ny=20,
+        Nx=40, Ny=40,
+        theta = 0.501,
         folder="movingvortex_results",
         solid = "no_solid",
-        extrapolation="elastic",   
+        extrapolation="laplace", 
         plot_interval=100,
-        save_step=1,
+        save_step=10,
         checkpoint_step=100,
         compute_error=100,
         L = 1.,
@@ -179,37 +180,40 @@ def post_solve(DVP, dt, dvp_, t, total_error_d, total_error_v, total_error_p, di
     Compute errors after solving 
     """
     # Get deformation, velocity, and pressure
-    d = dvp_["n"].sub(0, deepcopy=True)
+    # d = dvp_["n"].sub(0, deepcopy=True)
     v = dvp_["n"].sub(1, deepcopy=True)
     p = dvp_["n"].sub(2, deepcopy=True) 
     
-    de = interpolate(displacement, DVP.sub(0).collapse())
+    # de = interpolate(displacement, DVP.sub(0).collapse())
     ve = interpolate(velocity, DVP.sub(1).collapse())
     pe = interpolate(p_bc_val, DVP.sub(2).collapse()) 
     
     # compute error for the deformation
-    error_d = errornorm(de, d, norm_type="L2")
+    # error_d = errornorm(de, d, norm_type="L2")
     error_v = errornorm(ve, v, norm_type="L2")
     error_p = errornorm(pe, p, norm_type="L2")
     
-    total_error_d += error_d*dt
+    # total_error_d += error_d*dt
     total_error_v += error_v*dt
     total_error_p += error_p*dt
 
     if MPI.rank(MPI.comm_world) == 0:
-        print("deformation error:", error_d)
+        # print("deformation error:", error_d)
         print("velocity error:", error_v)
         print("pressure error:", error_p)
   
-    return dict(total_error_d=total_error_d, total_error_v=total_error_v, total_error_p=total_error_p)                 
+    # return dict(total_error_d=total_error_d, total_error_v=total_error_v, total_error_p=total_error_p)                 
+    return dict(total_error_v=total_error_v, total_error_p=total_error_p)                 
       
-def finished(total_error_d, total_error_v, total_error_p, dt, results_folder, **namespace):
+# def finished(total_error_d, total_error_v, total_error_p, dt, results_folder, **namespace):
+def finished(total_error_v, total_error_p, dt, results_folder, **namespace):
     if MPI.rank(MPI.comm_world) == 0:
-        print("total error for the deformation: ", total_error_d)
+        # print("total error for the deformation: ", total_error_d)
         print("total error for the velocity: ", total_error_v)
         print("total error for the pressure: ", total_error_p)
     
-    save_data = dict(total_error_d=total_error_d, total_error_v=total_error_v, total_error_p=total_error_p, dt=dt)
+    save_data = dict(total_error_v=total_error_v, total_error_p=total_error_p, dt=dt)
+    # save_data = dict(total_error_d=total_error_d, total_error_v=total_error_v, total_error_p=total_error_p, dt=dt)
     file_name = f'results_dt_{dt}.pickle'
     with open(path.join(results_folder, file_name), 'wb') as f:
         pickle.dump(save_data, f)
