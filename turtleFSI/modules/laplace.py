@@ -7,7 +7,7 @@ from dolfin import inner, inv, grad, CellVolume
 from turtleFSI.modules import *
 
 
-def extrapolate_setup(F_fluid_linear, extrapolation_sub_type, mesh, d_, phi,
+def extrapolate_setup(F_fluid_linear, extrapolation_sub_type, mesh, d_, phi, n, ds,
                       dx_f, dx_f_id_list, **namespace):
     """
     Laplace lifting operator. Can be used for small to moderate deformations.
@@ -37,12 +37,21 @@ def extrapolate_setup(F_fluid_linear, extrapolation_sub_type, mesh, d_, phi,
     elif extrapolation_sub_type == "small_constant":
         alfa = 0.01 * (mesh.hmin())**2
     elif extrapolation_sub_type == "constant":
-        alfa = 1.0
+        alfa = 1
     else:
         raise RuntimeError("Could not find extrapolation method {}".format(extrapolation_sub_type))
 
     for fluid_region in range(len(dx_f_id_list)): # for all fluid regions
         F_extrapolate = alfa * inner(grad(d_["n"]), grad(phi)) * dx_f[fluid_region]
         F_fluid_linear += F_extrapolate
-
+    
+    """
+    TODO: Chcek if this is correct.
+    In Moving Vortex problem, we do NOT have d=0 on the fluid boundaries like stated above.
+    Thus, wee need to add boundary term that can be expressed as:
+        - du/dn * phi * ds  
+    """
+    F_fluid_linear -= inner(grad(d_["n"])*n, phi) * ds(mesh)
+    # bc_term = assemble(inner(grad(d_["n"])*n, phi) * ds(mesh))
+    # print(bc_term.get_local().sum())
     return dict(F_fluid_linear=F_fluid_linear)
