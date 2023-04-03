@@ -5,15 +5,15 @@ v_deg=2
 p_deg=1
 T=1
 # first we loop over spatial resolution
-for i in {1..6}
+for i in {4..4}
 do  
     Nx=$((10*2**$i))
     mesh_size=$(echo "scale=6; 4.0/$Nx" | bc)
     # swith the number of processors
     if [ $i -eq 4 ] || [ $i -eq 5 ] || [ $i -eq 6 ] ; then
-        mpirun -np 4 python -u monolithic.py -p=tg2d -dt=$dt -T=$T --new-arguments mesh_size=${mesh_size} folder=T_${T}_mesh_size_${mesh_size}_dt_${dt}_P${v_deg}P${p_deg}_tg2d
+        mpirun -np 4 python -u monolithic.py -p=tg2d -dt=$dt -T=$T --verbose False --loglevel 50 --new-arguments mesh_size=${mesh_size} folder=T_${T}_mesh_size_${mesh_size}_dt_${dt}_P${v_deg}P${p_deg}_tg2d
     else
-        mpirun -np 2 python -u monolithic.py -p=tg2d -dt=$dt -T=$T --new-arguments mesh_size=${mesh_size} folder=T_${T}_mesh_size_${mesh_size}_dt_${dt}_P${v_deg}P${p_deg}_tg2d
+        mpirun -np 4 python -u monolithic.py -p=tg2d -dt=$dt -T=$T --verbose False --loglevel 50 --new-arguments mesh_size=${mesh_size} folder=T_${T}_mesh_size_${mesh_size}_dt_${dt}_P${v_deg}P${p_deg}_tg2d
     fi
 done
 
