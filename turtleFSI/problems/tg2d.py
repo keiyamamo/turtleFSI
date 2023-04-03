@@ -40,7 +40,9 @@ def set_problem_parameters(default_variables, **namespace):
         mesh_size=0.25,
         mesh_type="unstructured",
         external_mesh=False,
-        N =10 # number of points along x or y axis when creating structured mesh
+        N=40, # number of points along x or y axis when creating structured mesh
+        recompute=100,
+        recompute_tstep=100,
         ))
 
     return default_variables
