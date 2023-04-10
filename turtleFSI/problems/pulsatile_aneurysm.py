@@ -85,10 +85,10 @@ def get_mesh_domain_and_boundaries(mesh_file,fsi_region, fsi_id, rigid_id, outer
     hdf.read(domains, "/domains")
 
     # Only considere FSI in domain within this sphere BC1
-    sph_x = fsi_region[0]
-    sph_y = fsi_region[1]
-    sph_z = fsi_region[2]
-    sph_rad = fsi_region[3]
+    sph_x = float(fsi_region[0])
+    sph_y = float(fsi_region[1])
+    sph_z = float(fsi_region[2])
+    sph_rad = float(fsi_region[3])
 
     i = 0
     for submesh_facet in facets(mesh):
@@ -101,11 +101,11 @@ def get_mesh_domain_and_boundaries(mesh_file,fsi_region, fsi_id, rigid_id, outer
                 boundaries.array()[i] = rigid_id  # changed "fsi" idx to "rigid wall" idx
         i += 1
 
-    # Checking boundaries and domains
-    # f = File('case09.pvd')
+
+    # f = File(f'{mesh_file}.pvd')
     # f << boundaries
     # f << domains
-    
+    # exit(1)
 
     return mesh, domains, boundaries
 
