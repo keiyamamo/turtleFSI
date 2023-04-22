@@ -105,7 +105,7 @@ else:
 # Differentials
 ds = Measure("ds", subdomain_data=boundaries)
 dS = Measure("dS", subdomain_data=boundaries)
-dx = Measure("dx", subdomain_data=domains)
+dx = Measure("dx", domain=mesh, subdomain_data=domains)
 
 # Domains
 exec("from turtleFSI.modules.domain import assign_domain_properties")
