@@ -398,9 +398,9 @@ def merge_visualization_files(visualization_folder, **namesapce):
     xdmf_pressure = [f for f in xdmf_files if "pressure" in f.__str__()]
 
     # Merge files
-    for files in [xdmf_displacement, xdmf_velocity, xdmf_pressure]:
-        if len(files) > 1:
-            merge_xml_files(files)
+    # for files in [xdmf_displacement, xdmf_velocity, xdmf_pressure]:
+    #     if len(files) > 1:
+    #         merge_xml_files(files)
 
 
 def merge_xml_files(files):
