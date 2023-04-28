@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import pickle
 from os import path
 import sys
@@ -11,25 +10,24 @@ from dolfin import *
 from turtleFSI.problems import *
 
 """
-Taylor-Green vortex in 2D with fixed domain size
+Taylor-Green vortex in 2D with fixed domain
 This problem can be used to test the accuracy of the fluid solver
+The mesh can be either structured or unstructured based on the user's choice and availability of pygmsh
 """
 
 # Override some problem specific parameters
 def set_problem_parameters(default_variables, **namespace):
     default_variables.update(dict(
-        mu_f=0.01, # dynamic viscosity of fluid, 0.01 as kinematic viscosity
+        mu_f=0.01,                        # dynamic viscosity of fluid, 0.01 as kinematic viscosity
         T=1,
-        dt=0.015625,
-        theta=0.5, # Crank-Nicolson
-        rho_f = 1, # density of fluid
+        dt=0.01,
+        theta=0.5,                        # Crank-Nicolson
+        rho_f = 1,                        # density of fluid
         folder="tg2d_results",
-        solid = "no_solid",
-        extrapolation="no_extrapolation", # first try with static mesh
-        plot_interval=100,
+        solid = "no_solid",               # no solid
+        extrapolation="no_extrapolation", # no extrapolation since the domain is fixed
         save_step=500,
         checkpoint_step=500,
-        compute_error=100,
         L = 2.,
         v_deg=2,
         p_deg=1,
@@ -37,10 +35,10 @@ def set_problem_parameters(default_variables, **namespace):
         rtol=1e-10,
         total_error_v = 0,
         total_error_p = 0,
-        mesh_size=0.25,
-        mesh_type="unstructured",
-        external_mesh=False,
-        N=40, # number of points along x or y axis when creating structured mesh
+        mesh_size=0.25,                    # mesh size for pygmsh, if you use unit square mesh from FEniCS
+        mesh_type="structured",            # structured or unstructured
+        external_mesh=False,               # you could also read mesh from file if you have one
+        N=40,                              # number of points along x or y axis when creating structured mesh
         recompute=100,
         recompute_tstep=100,
         ))
@@ -48,6 +46,13 @@ def set_problem_parameters(default_variables, **namespace):
     return default_variables
 
 def create2Dmesh(msh):
+    """
+    Given a pygmsh mesh, create a dolfin mesh
+    Args:
+        msh: pygmsh mesh
+    Returns:
+        mesh: dolfin mesh
+    """
     # remove z coordinate
     msh.points = msh.points[:, :2]
     nodes = msh.points
@@ -63,7 +68,14 @@ def create2Dmesh(msh):
     editor.close()
     return mesh
 
-def fac_mesh(mesh_size):
+def unitsquare_mesh(mesh_size):
+    """
+    Create unstructured mesh using pygmsh
+    Args:
+        mesh_size: scaling factor for mesh size in gmsh. The lower the value, the finer the mesh.
+    Returns:
+        mesh: pygmsh mesh
+    """
     with pygmsh.geo.Geometry() as geom:
         geom.add_rectangle(
             -1, 1, -1, 1, 0.0, mesh_size=mesh_size
@@ -78,11 +90,23 @@ class Wall(SubDomain):
 
 def get_mesh_domain_and_boundaries(mesh_size, mesh_type, external_mesh, N,**namespace):
     """
-    Here, we create unstructured mesh using gmsh. 
+    Here, you have three options to create mesh:
+    1. Use external mesh from file (e.g. .xdmf)
+    2. Use pygmsh to create unstructured mesh (on the fly)
+    3. Use dolfin to create structured mesh (on the fly)
+
     If pygmsh is not installed, we use default mesh from dolfin, which is structured.
 
     args:
         mesh_size: scaling factor for mesh size in gmsh. The lower the value, the finer the mesh.
+        mesh_type: structured or unstructured
+        external_mesh: True or False
+        N: number of points along x or y axis when creating structured mesh
+    returns:
+        mesh
+        domains
+        boundaries
+
     """
     if external_mesh:
         mesh = Mesh()
@@ -91,7 +115,7 @@ def get_mesh_domain_and_boundaries(mesh_size, mesh_type, external_mesh, N,**name
         info_blue("Loaded external mesh")
     elif "pygmsh" in sys.modules and mesh_type == "unstructured":
         info_blue("Creating unstructured mesh")
-        mesh = fac_mesh(mesh_size)
+        mesh = unitsquare_mesh(mesh_size)
         # In case of MPI, redistribute the mesh to all processors
         MeshPartitioning.build_distributed_mesh(mesh)
     else:
@@ -134,7 +158,11 @@ class analytical_pressure(UserExpression):
     def value_shape(self):
         return ()
 
-def top_right_front_point(x, on_boundary):
+def top_right_point(x, on_boundary):
+    """
+    Since we only have Neuman BC for the pressure, we need to apply Dirichlet BC at one point to get unique solution.
+    In this case, we apply Dirichlet BC at the top right point since it only has one degree of freedom.
+    """
     tol = DOLFIN_EPS
     return near(x[0], 1.0, tol) and near(x[1], 1.0, tol)
  
@@ -146,9 +174,9 @@ def create_bcs(DVP, boundaries, **namespace):
     bcs = []
     velocity = analytical_velocity()
     p_bc_val = analytical_pressure()
-    # Deformation is prescribed over the entire domain while the velocity is prescribed on the boundary
+    
     u_bc = DirichletBC(DVP.sub(1), velocity, boundaries, 1)
-    p_bc = DirichletBC(DVP.sub(2), p_bc_val, top_right_front_point, method="pointwise")    
+    p_bc = DirichletBC(DVP.sub(2), p_bc_val, top_right_point, method="pointwise")    
     
     bcs.append(u_bc)
     bcs.append(p_bc)
@@ -185,7 +213,7 @@ def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, velocity, p_bc_val, 
     """
     Compute errors after solving 
     """
-    # Get deformation, velocity, and pressure
+    # Get velocity, and pressure
     v = dvp_["n"].sub(1, deepcopy=True)
     p = dvp_["n"].sub(2, deepcopy=True) 
     
@@ -197,9 +225,9 @@ def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, velocity, p_bc_val, 
     total_error_v += E_v*dt
     total_error_p += E_p*dt
 
-    # if MPI.rank(MPI.comm_world) == 0:
-    #     print("velocity error:", E_v)
-    #     print("pressure error:", E_p)
+    if MPI.rank(MPI.comm_world) == 0:
+        print("velocity error:", E_v)
+        print("pressure error:", E_p)
   
     return dict(total_error_v=total_error_v, total_error_p=total_error_p)                 
       
