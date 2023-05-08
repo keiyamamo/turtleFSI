@@ -52,7 +52,8 @@ if default_variables["restart_folder"] is not None:
 # Set variables in global namespace
 vars().update(default_variables)
 
-if MPI.rank(MPI.comm_world) == 0:
+# Print out variables
+if MPI.rank(MPI.comm_world) == 0 and verbose:
     pprint(default_variables)
 
 # Create folders
