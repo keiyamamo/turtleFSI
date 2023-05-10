@@ -411,7 +411,31 @@ def merge_xml_files(files):
         trees.append(ET.parse(f))
         root = trees[-1].getroot()
         first_timesteps.append(float(root[0][0][0][2].attrib["Value"]))
+    """
+    NOTE for recroding fix process:
+    In [6]: trees
+    Out[6]: 
+    [<xml.etree.ElementTree.ElementTree at 0x19117b940>,
+    <xml.etree.ElementTree.ElementTree at 0x19117bbb0>]
+ 
+    In [3]: first_timesteps
+    Out[3]: [0.01, 0.03]
+    
+    In [4]: files
+    Out[4]: 
+    [PosixPath('tg2d_results/30/Visualization/displacement_run_1.xdmf'),
+    PosixPath('tg2d_results/30/Visualization/displacement.xdmf')]
 
+    In [1]: indexes
+    Out[1]: [0, 1]
+
+    # This is pointing to the first tree
+    In [4]: base_tree
+    Out[4]: <xml.etree.ElementTree.ElementTree at 0x19117b940>
+
+
+
+    """
     # Index valued sort (bypass numpy dependency)
     first_timestep_sorted = sorted(first_timesteps)
     indexes = [first_timesteps.index(i) for i in first_timestep_sorted]
@@ -421,6 +445,8 @@ def merge_xml_files(files):
     last_node = base_tree.getroot()[0][0][-1]
     ind = 1 if len(list(last_node)) == 3 else 2
     last_timestep = float(last_node[ind].attrib["Value"])
+
+    from IPython import embed; embed(); exit(1)
 
     # Append
     for index in indexes[1:]:
