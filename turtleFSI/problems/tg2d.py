@@ -19,14 +19,14 @@ The mesh can be either structured or unstructured based on the user's choice and
 def set_problem_parameters(default_variables, **namespace):
     default_variables.update(dict(
         mu_f=0.01,                        # dynamic viscosity of fluid, 0.01 as kinematic viscosity
-        T=1,
+        T=0.1,
         dt=0.01,
         theta=0.5,                        # Crank-Nicolson
         rho_f = 1,                        # density of fluid
         folder="tg2d_results",
         solid = "no_solid",               # no solid
         extrapolation="no_extrapolation", # no extrapolation since the domain is fixed
-        save_step=500,
+        save_step=1,
         checkpoint_step=500,
         L = 2.,
         v_deg=2,
@@ -41,6 +41,8 @@ def set_problem_parameters(default_variables, **namespace):
         N=40,                              # number of points along x or y axis when creating structured mesh
         recompute=100,
         recompute_tstep=100,
+        save_deg=2,
+        killtime=3
         ))
 
     return default_variables
