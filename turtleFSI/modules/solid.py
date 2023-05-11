@@ -24,7 +24,7 @@ def solid_setup(d_, v_, phi, psi, dx_s, ds_s, dx_s_id_list, ds_s_ext_id_list, so
     # that there is continuity of the velocity at the boundary. Since this is imposed weakly
     # we 'make this extra important' by multiplying with a large number delta.
 
-    delta = 1.0E7
+    delta = 1.0E13
 
     # Theta scheme constants
     theta0 = Constant(theta)

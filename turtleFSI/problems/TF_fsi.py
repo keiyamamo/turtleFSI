@@ -22,23 +22,32 @@ from turtleFSI.modules import *
 parameters["ghost_mode"] = "shared_facet"
 #_compiler_parameters = dict(parameters["form_compiler"])
 
-
 def set_problem_parameters(default_variables, **namespace):
     # Overwrite or add new variables to 'default_variables'
     default_variables.update(dict(
         # Temporal variables
-        T=30,                         # End time [s]
+        T=6,                         # End time [s]
         dt=0.01,                      # Time step [s]
-        theta=0.51,                    # Temporal scheme
+        theta=0.501,                    # Temporal scheme
+        save_step=100,                 # Save step
+
+        # Physical consants ('FSI 1')
+        Um = 0.2,                     # Max. velocity inlet
+        rho_f = 1.0e3,                # Fluid density
+        mu_f=1.0,                     # Fluid dynamic viscosity [Pa.s]
+        rho_s=1.0e3,                  # Solid density
+        nu_s=0.4,                     # Solid Poisson ratio
+        mu_s=0.5e6,                   # Shear modulus
+        lambda_s=2e6,                 # Solid 1st Lame Coefficient [Pa]
 
         # Physical constants ('FSI 3')
-        Um=2.0,                       # Max. velocity inlet, CDF3: 2.0 [m/s]
-        rho_f=1.0e3,                  # Fluid density [kg/m3]
-        mu_f=1.0,                     # Fluid dynamic viscosity [Pa.s]
-        rho_s=1.0e3,                  # Solid density[kg/m3]
-        nu_s=0.4,                     # Solid Poisson ratio [-]
-        mu_s=2.0e6,                   # Shear modulus, CSM3: 0.5E6 [Pa]
-        lambda_s=4e6,                 # Solid 1st Lame Coefficient [Pa]
+        # Um=2.0,                       # Max. velocity inlet, CDF3: 2.0 [m/s]
+        # rho_f=1.0e3,                  # Fluid density [kg/m3]
+        # mu_f=1.0,                     # Fluid dynamic viscosity [Pa.s]
+        # rho_s=1.0e3,                  # Solid density[kg/m3]
+        # nu_s=0.4,                     # Solid Poisson ratio [-]
+        # mu_s=2.0e6,                   # Shear modulus, CSM3: 0.5E6 [Pa]
+        # lambda_s=8e6,                 # Solid 1st Lame Coefficient [Pa]
 
         # Problem specific
         folder="TF_fsi_results",      # Name of the results folder
@@ -48,6 +57,7 @@ def set_problem_parameters(default_variables, **namespace):
 
         # Solver settings
         recompute=1,                  # Compute the Jacobian matrix every iteration
+        checkpoint_step=1,
 
         # Geometric variables
         R=0.05,                       # Radius of the circle
@@ -56,7 +66,8 @@ def set_problem_parameters(default_variables, **namespace):
         f_L=0.35,                     # Length of the flag
         f_H=0.02,                     # Height of the flag
         c_x=0.2,                      # Center of the circle x-direction
-        c_y=0.2))                     # Center of the circle y-direction
+        c_y=0.2,                      # Center of the circle y-direction
+    ))
 
     default_variables["compiler_parameters"].update({"quadrature_degree": 5})
 
@@ -108,15 +119,7 @@ def initiate(c_x, c_y, R, f_L, **namespace):
     # Coordinate for sampling statistics
     coord = [c_x + R + f_L, c_y]
 
-    # Lists to hold results
-    displacement_x_list = []
-    displacement_y_list = []
-    drag_list = []
-    lift_list = []
-    time_list = []
-
-    return dict(displacement_x_list=displacement_x_list, displacement_y_list=displacement_y_list,
-                drag_list=drag_list, lift_list=lift_list, time_list=time_list, coord=coord)
+    return dict(coord=coord)
 
 
 class Inlet(UserExpression):
@@ -220,40 +223,34 @@ def peval(f, x):
 ################################################################################
 
 
-def post_solve(t, dvp_, coord, displacement_x_list, displacement_y_list, drag_list, lift_list, mu_f, n,
-               verbose, time_list, ds, dS, **namespace):
+def post_solve(t, dvp_, coord, mu_f, n, results_folder, ds, dS, dx, **namespace):
     d = dvp_["n"].sub(0, deepcopy=True)
     v = dvp_["n"].sub(1, deepcopy=True)
     p = dvp_["n"].sub(2, deepcopy=True)
 
-    # Compute drag and lift
+    # Compute drag and lift around the circle 
     Dr = -assemble((sigma(v, p, d, mu_f)*n)[0]*ds(6))
     Li = -assemble((sigma(v, p, d, mu_f)*n)[1]*ds(6))
+
+    # New implementation
     Dr += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[0]*dS(5))
     Li += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[1]*dS(5))
-
-    # Append results
-    drag_list.append(Dr)
-    lift_list.append(Li)
-    time_list.append(t)
+    
     d_eval = peval(d, coord)
-    displacement_x_list.append(d_eval[0])
-    displacement_y_list.append(d_eval[1])
-    # displacement_x_list.append(d(coord)[0])
-    # displacement_y_list.append(d(coord)[1])
+    displacement_x = (d_eval[0])
+    displacement_y = (d_eval[1])
 
     # Print
-    if MPI.rank(MPI.comm_world) == 0 and verbose:
-        print("Distance x: {:e}".format(displacement_x_list[-1]))
-        print("Distance y: {:e}".format(displacement_y_list[-1]))
-        print("Drag: {:e}".format(drag_list[-1]))
-        print("Lift: {:e}".format(lift_list[-1]))
-
-
-def finished(results_folder, displacement_x_list, displacement_y_list, drag_list, lift_list, time_list, **namespace):
     if MPI.rank(MPI.comm_world) == 0:
-        np.savetxt(path.join(results_folder, 'Lift.txt'), lift_list, delimiter=',')
-        np.savetxt(path.join(results_folder, 'Drag.txt'), drag_list, delimiter=',')
-        np.savetxt(path.join(results_folder, 'Time.txt'), time_list, delimiter=',')
-        np.savetxt(path.join(results_folder, 'dis_x.txt'), displacement_x_list, delimiter=',')
-        np.savetxt(path.join(results_folder, 'dis_y.txt'), displacement_y_list, delimiter=',')
+        # print("Distance x: {:e}".format(displacement_x))
+        # print("Distance y: {:e}".format(displacement_y))
+        # print("Drag: {:e}".format(Dr))
+        # print("Lift: {:e}".format(Li))
+
+        data = [t, Dr, Li, displacement_x, displacement_y]
+        
+        data_path = path.join(results_folder, "forces.txt")
+
+        with open(data_path, "ab") as f:
+            np.savetxt(f, data, fmt=" %.16f ", newline=' ')
+            f.write(b'\n')
