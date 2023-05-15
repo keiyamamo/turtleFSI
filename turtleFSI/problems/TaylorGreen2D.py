@@ -1,6 +1,7 @@
 import pickle
 from os import path
 import sys
+import time
 try:
     import pygmsh
 except ImportError:
@@ -19,15 +20,15 @@ The mesh can be either structured or unstructured based on the user's choice and
 def set_problem_parameters(default_variables, **namespace):
     default_variables.update(dict(
         mu_f=0.01,                        # dynamic viscosity of fluid, 0.01 as kinematic viscosity
-        T=0.05,
+        T=0.10,
         dt=0.01,
         theta=0.5,                        # Crank-Nicolson
         rho_f = 1,                        # density of fluid
         folder="tg2d_results",
         solid = "no_solid",               # no solid
         extrapolation="no_extrapolation", # no extrapolation since the domain is fixed
-        save_step=500,
-        checkpoint_step=500,
+        save_step=1,
+        checkpoint_step=1,
         L = 2.,
         v_deg=2,
         p_deg=1,
@@ -38,10 +39,11 @@ def set_problem_parameters(default_variables, **namespace):
         mesh_size=0.25,                    # mesh size for pygmsh, if you use unit square mesh from FEniCS
         mesh_type="structured",            # structured or unstructured
         external_mesh=False,               # you could also read mesh from file if you have one
-        N=40,                              # number of points along x or y axis when creating structured mesh
+        N=6,                              # number of points along x or y axis when creating structured mesh
         recompute=100,
         recompute_tstep=100,
-        killtime=2
+        killtime=2,
+        save_deg=2
         ))
 
     return default_variables
@@ -229,6 +231,8 @@ def post_solve(DVP, dt, dvp_, total_error_v, total_error_p, velocity, p_bc_val, 
     if MPI.rank(MPI.comm_world) == 0:
         print("velocity error:", E_v)
         print("pressure error:", E_p)
+
+    time.sleep(0.5)
   
     return dict(total_error_v=total_error_v, total_error_p=total_error_p)                 
       

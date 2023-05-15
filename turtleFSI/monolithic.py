@@ -215,9 +215,9 @@ if MPI.rank(MPI.comm_world) == 0:
         print("\nTotal simulation time {0:f}".format(timer.elapsed()[0]))
 
 # Merge visualization files
-if restart_folder is not None and MPI.rank(MPI.comm_world) == 0:
-    print("Merging visualization files")
-    merge_visualization_files(**vars())
+# if restart_folder is not None and MPI.rank(MPI.comm_world) == 0:
+#     print("Merging visualization files")
+#     merge_visualization_files(**vars())
 
 # Post-processing of simulation
 finished(**vars())
