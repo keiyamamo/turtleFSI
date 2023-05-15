@@ -230,23 +230,23 @@ def post_solve(t, dvp_, coord, mu_f, n,
     v = dvp_["n"].sub(1, deepcopy=True)
     p = dvp_["n"].sub(2, deepcopy=True)
 
-    # Compute drag and lift around the circle 
-    # Dr_old = -assemble((sigma(v, p, d, mu_f)*n)[0]*ds(6))
+    # Compute drag and lift around the circle
+    # The circle is a hole, so we do not need +/- sign
+    Dr_old = -assemble((sigma(v, p, d, mu_f)*n)[0]*ds(6))
+    Li_old = -assemble((sigma(v, p, d, mu_f)*n)[1]*ds(6))
+
     Dr_new = -assemble((sigma(v, p, d, mu_f)*n)[0]*ds(6))
-    # Li_old = -assemble((sigma(v, p, d, mu_f)*n)[1]*ds(6))
     Li_new = -assemble((sigma(v, p, d, mu_f)*n)[1]*ds(6))
-    # Compute drag and lift around the bad
+
+    # Compute drag and lift around the bar
+    # The bar has inner and outer boundaries, so we need +/- sign
     # Original implementation
-    # Dr_old += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[0]*dS(5))
-    # Li_old += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[1]*dS(5))
+    Dr_old += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[0]*dS(5))
+    Li_old += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[1]*dS(5))
     
     # New implementation
     Dr_new += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[0]*dS(5) + Constant(0)*dx)
     Li_new += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[1]*dS(5) + Constant(0)*dx)
-    
-
-    Dr = Dr_new
-    Li = Li_new
     
     d_eval = peval(d, coord)
     displacement_x = (d_eval[0])
@@ -254,12 +254,7 @@ def post_solve(t, dvp_, coord, mu_f, n,
 
     # Print
     if MPI.rank(MPI.comm_world) == 0:
-        # print("Distance x: {:e}".format(displacement_x))
-        # print("Distance y: {:e}".format(displacement_y))
-        # print("Drag: {:e}".format(Dr))
-        # print("Lift: {:e}".format(Li))
-
-        data = [t, Dr, Li, displacement_x, displacement_y]
+        data = [t, Dr_new, Dr_old, Li_new, Li_old, displacement_x, displacement_y]
         
         data_path = path.join(results_folder, "forces.txt")
 

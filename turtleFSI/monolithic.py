@@ -103,8 +103,8 @@ else:
     phi, psi, gamma = TestFunctions(DVP)
 
 # Differentials
-ds = Measure("ds", subdomain_data=boundaries)
-dS = Measure("dS", subdomain_data=boundaries)
+ds = Measure("ds", domain=mesh, subdomain_data=boundaries)
+dS = Measure("dS", domain=mesh, subdomain_data=boundaries)
 dx = Measure("dx", domain=mesh, subdomain_data=domains)
 
 # Domains
