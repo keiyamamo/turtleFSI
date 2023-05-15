@@ -19,7 +19,7 @@ The mesh can be either structured or unstructured based on the user's choice and
 def set_problem_parameters(default_variables, **namespace):
     default_variables.update(dict(
         mu_f=0.01,                        # dynamic viscosity of fluid, 0.01 as kinematic viscosity
-        T=1,
+        T=0.05,
         dt=0.01,
         theta=0.5,                        # Crank-Nicolson
         rho_f = 1,                        # density of fluid
@@ -41,6 +41,7 @@ def set_problem_parameters(default_variables, **namespace):
         N=40,                              # number of points along x or y axis when creating structured mesh
         recompute=100,
         recompute_tstep=100,
+        killtime=2
         ))
 
     return default_variables
