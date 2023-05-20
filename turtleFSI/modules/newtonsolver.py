@@ -3,7 +3,9 @@
 # the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 # PURPOSE.
 
-from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions
+from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions, as_backend_type
+import os
+from petsc4py import PETSc
 
 PETScOptions.set("mat_mumps_icntl_4", 1) # If negatvie or zero, MUMPS will suppress diagnositc printining, statistics, and warning messages. 
 PETScOptions.set("mat_mumps_icntl_14", 400) # allocate more memory to mumps
@@ -31,7 +33,7 @@ def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonl
 
 
 def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_tstep, compiler_parameters,
-                 dvp_, up_sol, dvp_res, rtol, atol, max_it, counter, first_step_num, verbose, **namespace):
+                 dvp_, up_sol, dvp_res, rtol, atol, max_it, counter, first_step_num, verbose, results_folder, **namespace):
     """
     Solve the non-linear system of equations with Newton scheme. The standard is to compute the Jacobian
     every time step, however this is computationally costly. We have therefore added two parameters for
@@ -73,6 +75,15 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
 
         # Compute right hand side
         b = assemble(-F, tensor=b)
+        A_petsc = as_backend_type(A).mat()
+        b_petsc = as_backend_type(b).vec()
+        matA_path = os.path.join(results_folder, "matrix-A.dat")
+        vecb_path = os.path.join(results_folder, "vector-B.dat")
+        viewer_A = PETSc.Viewer().createBinary(matA_path, 'w')
+        viewer_b = PETSc.Viewer().createBinary(vecb_path, 'w')
+        A_petsc.view(viewer_A)
+        b_petsc.view(viewer_b)
+        exit()
 
         # Apply boundary conditions and solve
         [bc.apply(b, dvp_["n"].vector()) for bc in bcs]
