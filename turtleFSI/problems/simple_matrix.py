@@ -108,17 +108,3 @@ def initiate(dvp_, DVP, **namespace):
     assign(dvp_["n"].sub(2), pi)
 
     return dict(dvp_=dvp_)
-    
-
-def pre_solve(**namespace):
-    """
-    Here maybe I can save the matrix and rhs for each time step.
-    """ 
-    from IPython import embed; embed(); exit(1)
-    pass
-
-def post_solve(**namespace):
-    pass            
-      
-def finished(**namespace):
-    pass
