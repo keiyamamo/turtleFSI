@@ -22,8 +22,8 @@ def set_problem_parameters(default_variables, **namespace):
         solid = "solid",
         extrapolation="laplace", 
         save_step=1,
-        d_deg=1,
-        v_deg=1,
+        d_deg=2,
+        v_deg=2,
         p_deg=1,
         N=1,                              # number of points along x or y axis when creating structured mesh
         dx_f_id=1,       # Domain id of the fluid domain
@@ -57,8 +57,8 @@ class analytical_displacement(UserExpression):
         super().__init__(*args, **kwargs)
     
     def eval(self, value, x):
-        value[0] = 0
-        value[1] = 0
+        value[0] = 1
+        value[1] = 1
 
     def value_shape(self):
         return (2,)
@@ -79,7 +79,7 @@ class analytical_pressure(UserExpression):
         super().__init__(*args, **kwargs)
 
     def eval(self, value, x):
-        value[0] = 2
+        value[0] = 1
     
     def value_shape(self):
         return ()
