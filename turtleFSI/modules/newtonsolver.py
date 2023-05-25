@@ -9,6 +9,7 @@ from petsc4py import PETSc
 
 PETScOptions.set("mat_mumps_icntl_4", 1) # If negatvie or zero, MUMPS will suppress diagnositc printining, statistics, and warning messages. 
 PETScOptions.set("mat_mumps_icntl_14", 400) # allocate more memory to mumps
+# PETScOptions.set("mat_superlu_dist_printstat", "YES") # print statistics for SuperLU_DIST
 
 
 def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
