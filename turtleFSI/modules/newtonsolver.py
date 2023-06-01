@@ -9,8 +9,9 @@ import os
 
 # PETScOptions.set("mat_mumps_icntl_28", 2) # Parallel analysis
 # PETScOptions.set("mat_mumps_icntl_29", 2) # parallel ordering 1 = ptscotch, 2 = parmetis
-PETScOptions.set("mat_mumps_icntl_4", 1) # If negatvie or zero, MUMPS will suppress diagnositc printining, statistics, and warning messages. 
-PETScOptions.set("mat_mumps_icntl_14", 100) # allocate more memory to mumps
+# PETScOptions.set("mat_mumps_icntl_4", 1) # If negatvie or zero, MUMPS will suppress diagnositc printining, statistics, and warning messages. 
+# PETScOptions.set("mat_mumps_icntl_14", 100) # allocate more memory to mumps
+
 
 def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
                  DVP, dvp_, up_sol, compiler_parameters, **namespace):
@@ -61,7 +62,7 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
     ksp.setType('preonly')
     pc = ksp.getPC()
     pc.setType('lu')
-    pc.setFactorSolverType('mumps') # Default value "petsc" causes diverging solve
+    pc.setFactorSolverType('superlu_dist') # Default value "petsc" causes diverging solve
     ksp.setMonitor(lambda ksp, its, rnorm: print(f"KSP: {its} {rnorm}") if MPI.rank(MPI.comm_world) == 0 else None)
     ksp.setOperators(as_backend_type(A).mat())
     while rel_res > rtol and residual > atol and iter < max_it:
