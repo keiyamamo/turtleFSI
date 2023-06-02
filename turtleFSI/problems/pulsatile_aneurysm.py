@@ -91,6 +91,8 @@ def get_mesh_domain_and_boundaries(mesh_file,fsi_region, fsi_id, rigid_id, outer
     sph_rad = float(fsi_region[3])
 
     i = 0
+    # Fluid-solid interface is by defualt assumed to have fsi id. Therefore, we compute the distance from the midpoint of the cell
+    # to the center of the sphere and then change id from fsi to rigid wall if the distance is larger than the radius of the sphere
     for submesh_facet in facets(mesh):
         idx_facet = boundaries.array()[i]
         if idx_facet == fsi_id or idx_facet == outer_id:
