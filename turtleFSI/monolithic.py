@@ -68,7 +68,7 @@ set_log_level(loglevel)
 # Finite Elements for deformation (de), velocity (ve), and pressure (pe)
 de = VectorElement('CG', mesh.ufl_cell(), d_deg)
 ve = VectorElement('CG', mesh.ufl_cell(), v_deg)
-pe = FiniteElement('CG', mesh.ufl_cell(), p_deg)
+pe = FiniteElement('DG', mesh.ufl_cell(), p_deg)
 
 # Define coefficients
 k = Constant(dt)
