@@ -12,12 +12,17 @@ Springer, Berlin, Heidelberg, 2006. 371-385."""
 from dolfin import *
 import numpy as np
 from os import path
-import stress_strain as StrStr
+import turtleFSI.problems.Test_Material.stress_strain as StrStr
 
 from turtleFSI.problems import *
 parameters["form_compiler"]["quadrature_degree"] = 6 # Not investigated thorougly. See MSc theses of Gjertsen. 
 
 def set_problem_parameters(default_variables, **namespace):
+
+    E_s_val = 1E6
+    nu_s_val = 0.45
+    mu_s_val = E_s_val/(2*(1+nu_s_val))  # 0.345E6
+    lambda_s_val = nu_s_val*2.*mu_s_val/(1. - 2.*nu_s_val)
     
     default_variables.update(dict(
         # Temporal variables
