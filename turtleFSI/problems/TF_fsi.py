@@ -57,7 +57,7 @@ def set_problem_parameters(default_variables, **namespace):
 
         # Solver settings
         recompute=1,                  # Compute the Jacobian matrix every iteration
-        checkpoint_step=1,
+        checkpoint_step=100,
 
         # Geometric variables
         R=0.05,                       # Radius of the circle
@@ -121,7 +121,6 @@ def initiate(c_x, c_y, R, f_L, **namespace):
 
     return dict(coord=coord)
     
-
 
 class Inlet(UserExpression):
     def __init__(self, Um, H, **kwargs):
@@ -247,7 +246,8 @@ def post_solve(t, dvp_, coord, mu_f, n,
     # New implementation
     Dr_new += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[0]*dS(5) + Constant(0)*dx)
     Li_new += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[1]*dS(5) + Constant(0)*dx)
-    
+    from IPython import embed; embed(); exit(1)
+    # assemble(n("-")[0]*dS(5)) = 0.01999999999999999
     d_eval = peval(d, coord)
     displacement_x = (d_eval[0])
     displacement_y = (d_eval[1])
