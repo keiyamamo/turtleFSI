@@ -11,7 +11,7 @@ from dolfin import parameters, XDMFFile, MPI, assign, Mesh, refine, project, Vec
 import pickle
 from pathlib import Path
 from xml.etree import ElementTree as ET
-import numpy as np
+from numpy import isnan
 
 _compiler_parameters = dict(parameters["form_compiler"])
 _compiler_parameters.update({"quadrature_degree": 4, "optimize": True})
@@ -107,7 +107,7 @@ default_variables = dict(
     verbose=True,                              # Turn on/off verbose printing
     save_step=10,                              # Save file frequency
     save_deg=1,                                # Degree of the functions saved for visualisation '1' '2' '3' etc... (high value can slow down simulation significantly!)
-    checkpoint_step=500,                       # Checkpoint frequency
+    checkpoint_step=50,                       # Checkpoint frequency
     folder="results",                          # Folder to store results and checkpoint files
     sub_folder=None,                           # The unique name of the sub directory under folder where the results are stored
     restart_folder=None,                       # Path to a potential restart folder
@@ -339,7 +339,7 @@ def check_if_pause(folder):
 
 
 def start_from_checkpoint(dvp_, restart_folder, mesh, **namespace):
-    """Restart simulation from a previous simulation by by setting restart_folder"""
+    """Restart simulation from a previous simulation by setting restart_folder"""
     # Dump physical fields
     fields = _get_fields(dvp_, mesh)
 
@@ -347,29 +347,32 @@ def start_from_checkpoint(dvp_, restart_folder, mesh, **namespace):
         checkpoint_path = str(restart_folder.joinpath("checkpoint_" + name + ".xdmf"))
         with XDMFFile(MPI.comm_world, checkpoint_path) as f:
             f.read_checkpoint(field, name)
-
     # check if field constains any Nan values and stop the simulation if it detects any Nan values
     for name, field in fields:
-        if np.isnan(field.vector().get_local()).any():
+        if isnan(field.vector().get_local()).any():
             raise ValueError("Nan values detected in field " + name + ". Stopping simulation.")
 
-    assign(dvp_["n-1"].sub(0), fields[0][1])  # update d_["n-1"] to checkpoint d_["n-1"]
-    assign(dvp_["n-1"].sub(1), fields[1][1])  # update v_["n-1"] to checkpoint v_["n-1"]
-    assign(dvp_["n-1"].sub(2), fields[2][1])  # update p_["n-1"] to checkpoint p_["n-1"]
-    assign(dvp_["n"].sub(0), fields[0][1])    # update d_["n-1"] to checkpoint d_["n-1"]
-    assign(dvp_["n"].sub(1), fields[1][1])    # update v_["n-1"] to checkpoint v_["n-1"]
-    assign(dvp_["n"].sub(2), fields[2][1])    # update p_["n-1"] to checkpoint p_["n-1"]
+    assign(dvp_["n"].sub(0), fields[0][1])    # update d_["n"] to checkpoint d_["n-1"]
+    assign(dvp_["n"].sub(1), fields[2][1])    # update v_["n"] to checkpoint v_["n-1"]
+    assign(dvp_["n"].sub(2), fields[4][1])    # update p_["n"] to checkpoint p_["n-1"]
+    assign(dvp_["n-1"].sub(0), fields[1][1])  # update d_["n-1"] to checkpoint d_["n-2"]
+    assign(dvp_["n-1"].sub(1), fields[3][1])  # update v_["n-1"] to checkpoint v_["n-2"]
+    assign(dvp_["n-1"].sub(2), fields[5][1])  # update p_["n-1"] to checkpoint p_["n-2"]
 
 
 def _get_fields(dvp_, mesh):
     d1 = dvp_["n-1"].sub(0, deepcopy=True)
+    d2 = dvp_["n-2"].sub(0, deepcopy=True)
     v1 = dvp_["n-1"].sub(1, deepcopy=True)
+    v2 = dvp_["n-2"].sub(1, deepcopy=True)
     p1 = dvp_["n-1"].sub(2, deepcopy=True)
-    fields = [('d1', d1), ('v1', v1), ('p1', p1)]
+    p2 = dvp_["n-2"].sub(2, deepcopy=True)
+    fields = [('d1', d1), ('d2', d2), ('v1', v1), ('v2', v2), ('p1', p1), ('p2', p2)]
 
     if len(dvp_["n-1"]) == mesh.geometric_dimension() * 3 + 1:
         w1 = dvp_["n-1"].sub(3, deepcopy=True)
-        fields += [('w1', w1)]
+        w2 = dvp_["n-2"].sub(3, deepcopy=True)
+        fields += [('w1', w1), ('w2', w2)]
 
     return fields
 
