@@ -502,5 +502,4 @@ def finished(**namespace):
     """
     Function called once at the end of the time loop.
     """
-
     pass
