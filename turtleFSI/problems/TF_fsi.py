@@ -26,8 +26,8 @@ def set_problem_parameters(default_variables, **namespace):
     # Overwrite or add new variables to 'default_variables'
     default_variables.update(dict(
         # Temporal variables
-        T=6,                         # End time [s]
-        dt=0.001,                      # Time step [s]
+        T=30,                         # End time [s]
+        dt=0.01,                      # Time step [s]
         theta=0.501,                    # Temporal scheme
         save_step=100,                 # Save step
 
@@ -51,12 +51,13 @@ def set_problem_parameters(default_variables, **namespace):
 
         # Problem specific
         folder="TF_fsi_results",      # Name of the results folder
-        extrapolation="biharmonic",   # No displacement to extrapolate
-        extrapolation_sub_type="constrained_disp_vel",  # Biharmonic type
-        bc_ids=[2, 3, 4, 6],          # Ids of makers for the mesh extrapolation
+        # extrapolation="biharmonic",   # No displacement to extrapolate
+        # extrapolation_sub_type="constrained_disp_vel",  # Biharmonic type
+        # bc_ids=[2, 3, 4, 6],          # Ids of makers for the mesh extrapolation
+        extrapolation="laplace",   
 
         # Solver settings
-        recompute=1,                  # Compute the Jacobian matrix every iteration
+        recompute=5,                  # Compute the Jacobian matrix every iteration
         checkpoint_step=100,
 
         # Geometric variables
@@ -246,8 +247,7 @@ def post_solve(t, dvp_, coord, mu_f, n,
     # New implementation
     Dr_new += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[0]*dS(5) + Constant(0)*dx)
     Li_new += -assemble((sigma(v("+"), p("+"), d("+"), mu_f)*n("+"))[1]*dS(5) + Constant(0)*dx)
-    from IPython import embed; embed(); exit(1)
-    # assemble(n("-")[0]*dS(5)) = 0.01999999999999999
+
     d_eval = peval(d, coord)
     displacement_x = (d_eval[0])
     displacement_y = (d_eval[1])
