@@ -15,7 +15,7 @@ Kei Yamamoto added docstring for assign_domain_properties function and added com
 
 def assign_domain_properties(dx: ufl.measure.Measure, dx_f_id: Union[int, list], rho_f: Union[float, list], 
                              mu_f: Union[float, list], fluid_properties: Union[list, dict], dx_s_id: Union[int, list], 
-                             material_model: str, rho_s: Union[float, list], mu_s: [float, list], lambda_s: Union[float, list],
+                             material_model: str, rho_s: Union[float, list], mu_s: Union[float, list], lambda_s: Union[float, list],
                              solid_properties: Union[list, dict], domains: MeshFunctionSizet, ds_s_id: Union[int, list],
                              boundaries: MeshFunctionSizet, robin_bc: bool, **namespace):
     """
@@ -54,7 +54,7 @@ def assign_domain_properties(dx: ufl.measure.Measure, dx_f_id: Union[int, list],
     dx_f = {}
     # In case there are multiple fluid regions, we assume that dx_f_id is a list
     if isinstance(dx_f_id, list):
-        for flid_region in range(len(dx_f_id)):
+        for fluid_region in range(len(dx_f_id)):
             dx_f[fluid_region] = dx(dx_f_id[fluid_region], subdomain_data=domains) # Create dx_f for each fluid domain
         dx_f_id_list=dx_f_id
     # In case there is only one fluid region, we assume that dx_f_id is an int
