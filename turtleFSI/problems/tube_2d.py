@@ -89,15 +89,16 @@ class PressureImpulse(UserExpression):
     def value_shape(self):
         return (2,)
     
-def initiate(dvp_, mesh, boundaries, **namespace):
+def initiate(dvp_, DVP, mesh, boundaries, **namespace):
     # get the dofs on the fluid inlet boundary
     V = FunctionSpace(mesh, 'CG', 1)
     bc = DirichletBC(V, Constant(0), boundaries, 1)
     bdry_dofs = np.array(list(bc.get_boundary_values().keys())) 
     p_n = dvp_["n"].sub(2, deepcopy=True) 
-    p_n_1 = dvp_["n-1"].sub(2, deepcopy=True) 
     p_n.vector()[bdry_dofs] = 5e3
-    p_n_1.vector()[bdry_dofs] = 5e3
+    bc = DirichletBC(DVP.sub(2), p_n, boundaries, 1)
+    
+    bc.apply(dvp_["n"].vector())
 
     return dict(dvp_=dvp_)
 
