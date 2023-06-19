@@ -105,7 +105,7 @@ class PressureImpulse(UserExpression):
 #     # return dict(dvp_=dvp_)
 #     pass
 
-def create_bcs(DVP, boundaries, dvp_, mesh, **namespace):
+def create_bcs(DVP, boundaries, F_fluid_linear, psi, mesh, **namespace):
 
     if MPI.rank(MPI.comm_world) == 0:
         print("Create bcs")
@@ -120,16 +120,26 @@ def create_bcs(DVP, boundaries, dvp_, mesh, **namespace):
 
     # Fluid velocity BCs / no-slip at solid walls
     u_f_walls = DirichletBC(DVP.sub(1), ((0.0, 0.0)), boundaries, 3)
+    # ds for fluid inlet 
+    ds = Measure("ds", domain=mesh, subdomain_data=boundaries)
+    impulse_force = PressureImpulse(force_val=5, t_start=0.005, t_end=0.006, t=0.0)
+    F_fluid_linear -= inner(impulse_force, psi)*ds(1)
 
-    V = FunctionSpace(mesh, 'CG', 1)
-    bc = DirichletBC(V, Constant(0), boundaries, 1)
-    bdry_dofs = np.array(list(bc.get_boundary_values().keys())) 
-    p_n = dvp_["n"].sub(2, deepcopy=True) 
-    p_n.vector()[bdry_dofs] = 5e3
-    bcp = DirichletBC(DVP.sub(2), p_n, boundaries, 1)
+    # V = FunctionSpace(mesh, 'CG', 1)
+    # bc = DirichletBC(V, Constant(0), boundaries, 1)
+    # bdry_dofs = np.array(list(bc.get_boundary_values().keys())) 
+    # p_n = dvp_["n"].sub(2, deepcopy=True) 
+    # p_n.vector()[bdry_dofs] = 5e3
+    # bcp = DirichletBC(DVP.sub(2), p_n, boundaries, 1)
     bcp_wall = DirichletBC(DVP.sub(2), Constant(0), boundaries, 3)
     bcp_out = DirichletBC(DVP.sub(2), Constant(0), boundaries, 2)
     # Assemble boundary conditions
-    bcs = [d_s_inlet, d_s_outlet, d_f_inlet, d_f_outlet, u_f_walls, bcp, bcp_wall, bcp_out]
+    bcs = [d_s_inlet, d_s_outlet, d_f_inlet, d_f_outlet, u_f_walls, bcp_wall]
 
-    return dict(bcs=bcs)
+    return dict(bcs=bcs, F_fluid_linear=F_fluid_linear, impulse_force=impulse_force)
+
+
+def pre_solve(t, impulse_force, **namespace):
+    # Update the time variable used for the inlet boundary condition
+    impulse_force.update(t)
+    return dict(impulse_force=impulse_force)
