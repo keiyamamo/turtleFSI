@@ -48,7 +48,6 @@ def get_mesh_domain_and_boundaries(**namespace):
     mesh = Mesh()
     with XDMFFile("mesh/tube_2d/tube_2d.xdmf") as infile:
         infile.read(mesh)
-
     # Import mesh boundaries
     boundaries = MeshValueCollection("size_t", mesh, 1) 
     with XDMFFile("mesh/tube_2d/tube_2d_facet.xdmf") as infile:
@@ -126,10 +125,11 @@ def create_bcs(DVP, boundaries, dvp_, mesh, **namespace):
     bc = DirichletBC(V, Constant(0), boundaries, 1)
     bdry_dofs = np.array(list(bc.get_boundary_values().keys())) 
     p_n = dvp_["n"].sub(2, deepcopy=True) 
-    p_n.vector()[bdry_dofs] = -5e3
+    p_n.vector()[bdry_dofs] = 5e3
     bcp = DirichletBC(DVP.sub(2), p_n, boundaries, 1)
-    
+    bcp_wall = DirichletBC(DVP.sub(2), Constant(0), boundaries, 3)
+    bcp_out = DirichletBC(DVP.sub(2), Constant(0), boundaries, 2)
     # Assemble boundary conditions
-    bcs = [d_s_inlet, d_s_outlet, d_f_inlet, d_f_outlet, u_f_walls, bcp]
+    bcs = [d_s_inlet, d_s_outlet, d_f_inlet, d_f_outlet, u_f_walls, bcp, bcp_wall, bcp_out]
 
     return dict(bcs=bcs)
