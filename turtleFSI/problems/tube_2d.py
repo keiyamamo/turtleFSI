@@ -48,6 +48,11 @@ def get_mesh_domain_and_boundaries(**namespace):
     mesh = Mesh()
     with XDMFFile("mesh/tube_2d/tube_2d.xdmf") as infile:
         infile.read(mesh)
+    #  # Rescale the mesh coordinated from [mm] to [m]
+    # x = mesh.coordinates()
+    # scaling_factor = 0.001  # from mm to m
+    # x[:, :] *= scaling_factor
+    # mesh.bounding_box_tree().build(mesh)
     # Import mesh boundaries
     boundaries = MeshValueCollection("size_t", mesh, 1) 
     with XDMFFile("mesh/tube_2d/tube_2d_facet.xdmf") as infile:
@@ -114,16 +119,20 @@ def create_bcs(DVP, boundaries, F_fluid_linear, psi, mesh, **namespace):
     d_s_inlet = DirichletBC(DVP.sub(0).sub(0), Constant(0), boundaries, 4)
     d_s_outlet = DirichletBC(DVP.sub(0).sub(0), Constant(0), boundaries, 5)
 
+    
+
     # Fluid displacement BCs / displacement at fluid inlet and outlet is 0 
     d_f_inlet = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, 1)
     d_f_outlet = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, 2)
 
     # Fluid velocity BCs / no-slip at solid walls
-    u_f_walls = DirichletBC(DVP.sub(1), ((0.0, 0.0)), boundaries, 3)
+    inflow_profile = ('4*1.5*x[1]*(0.41 - x[1]) / pow(0.41, 2)', '0')
+    u_f_inlet = DirichletBC(DVP.sub(1), Expression(inflow_profile, degree=2), boundaries, 1)
+    u_f_walls = DirichletBC(DVP.sub(1),  ((0.0, 0.0)), boundaries, 3)
     # ds for fluid inlet 
-    ds = Measure("ds", domain=mesh, subdomain_data=boundaries)
-    impulse_force = PressureImpulse(force_val=5, t_start=0.005, t_end=0.006, t=0.0)
-    F_fluid_linear -= inner(impulse_force, psi)*ds(1)
+    # ds = Measure("ds", domain=mesh, subdomain_data=boundaries)
+    # impulse_force = PressureImpulse(force_val=50, t_start=0.005, t_end=0.02, t=0.0)
+    # F_fluid_linear -= inner(impulse_force, psi)*ds(1)
 
     # V = FunctionSpace(mesh, 'CG', 1)
     # bc = DirichletBC(V, Constant(0), boundaries, 1)
@@ -131,15 +140,16 @@ def create_bcs(DVP, boundaries, F_fluid_linear, psi, mesh, **namespace):
     # p_n = dvp_["n"].sub(2, deepcopy=True) 
     # p_n.vector()[bdry_dofs] = 5e3
     # bcp = DirichletBC(DVP.sub(2), p_n, boundaries, 1)
-    bcp_wall = DirichletBC(DVP.sub(2), Constant(0), boundaries, 3)
+    # bcp_wall = DirichletBC(DVP.sub(2), Constant(0), boundaries, 3)
     bcp_out = DirichletBC(DVP.sub(2), Constant(0), boundaries, 2)
     # Assemble boundary conditions
-    bcs = [d_s_inlet, d_s_outlet, d_f_inlet, d_f_outlet, u_f_walls, bcp_wall]
+    bcs = [d_s_inlet, d_s_outlet, d_f_inlet, d_f_outlet, u_f_walls, u_f_inlet, bcp_out]
 
-    return dict(bcs=bcs, F_fluid_linear=F_fluid_linear, impulse_force=impulse_force)
+    # return dict(bcs=bcs, F_fluid_linear=F_fluid_linear, impulse_force=impulse_force)
+    return dict(bcs=bcs)
 
 
-def pre_solve(t, impulse_force, **namespace):
-    # Update the time variable used for the inlet boundary condition
-    impulse_force.update(t)
-    return dict(impulse_force=impulse_force)
+# def pre_solve(t, impulse_force, **namespace):
+#     # Update the time variable used for the inlet boundary condition
+#     impulse_force.update(t)
+#     return dict(impulse_force=impulse_force)
