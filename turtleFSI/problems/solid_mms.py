@@ -3,7 +3,8 @@
 # the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 # PURPOSE.
 
-"""Problem file for running the method of manufactured solution for the fluid
+"""
+Problem file for running the method of manufactured solution for the solid
 part of the equations. The manufactured solution is adapted from J. L. Guermond et al. 2005
 """
 
@@ -41,12 +42,17 @@ def set_problem_parameters(default_variables, **namespace):
 
         # MMS, From J. L. Guermond et al. 2005
         eps = 1e-4,
-        dx_mms = "pi * cos(t_e) * sin(2 * x[1]) * sin(x[0]) * sin(x[0]) + eps + x[1] / pi",
+        dx_mms = "pi * cos(t_e) * sin(2 * x[1]) * sin(x[0]) * sin(x[0]) + eps",
         dy_mms = "- pi * cos(t_e) * sin(2 * x[0]) * sin(x[1]) * sin(x[1]) + eps",
         ux_mms = "- pi * sin(t_e) * sin(2 * x[1]) * sin(x[0]) * sin(x[0])",
         uy_mms = "pi * sin(t_e) * sin(2 * x[0]) * sin(x[1]) * sin(x[1])"))
 
     return default_variables
+
+
+class Wall(SubDomain):
+        def inside(self, x, on_boundary):
+            return on_boundary
 
 
 def get_mesh_domain_and_boundaries(N, **namespace):
@@ -56,7 +62,9 @@ def get_mesh_domain_and_boundaries(N, **namespace):
     # Mark the boundaries
     Allboundaries = DomainBoundary()
     boundaries = MeshFunction("size_t", mesh, mesh.geometry().dim() - 1)
-    boundaries.set_all(1)
+    Allboundaries.mark(boundaries, 0) 
+    wall = Wall()
+    wall.mark(boundaries, 1)
 
     # Define the domain
     domains = MeshFunction("size_t", mesh, mesh.geometry().dim())
@@ -78,13 +86,13 @@ def initiate(F_solid_linear, theta, dx_mms, dy_mms, dt,
     t_e_n_1 = Constant(-dt)
 
     # Add F to variational formulation
-    x = SpatialCoordinate(mesh)
+    x = SpatialCoordinate(mesh) # needed for eval 
     for th, t_n in [(theta, "t_e_n"), ((1 - theta), "t_e_n_1")]:
         d_vec = as_vector([eval(dx_mms.replace("t_e", t_n)),
                            eval(dy_mms.replace("t_e", t_n))])
         t_n = eval(t_n)
 
-        f_tmp = diff(diff(d_vec, t_n), t_n) + div(Piola1(d_vec, solid_properties[0]))
+        f_tmp = diff(diff(d_vec, t_n), t_n) - div(Piola1(d_vec, solid_properties[0]))
         F_solid_linear -= th * inner(f_tmp, psi)*dx_s[0]
 
     # Set manufactured solution as initial condition for n-1 (t = 0)
@@ -116,7 +124,35 @@ def pre_solve(t_e_n, t_e_n_1, t, ux_e, uy_e, dx_e, dy_e, dt, **namespace):
     dy_e.t_e = t
     ux_e.t_e = t
     uy_e.t_e = t
-    
+
+    return dict(dx_e=dx_e, dy_e=dy_e, ux_e=ux_e, uy_e=uy_e)
+
+def post_solve(DVP, t, dt, dvp_, dx_e, dy_e, ux_e, uy_e, **namespace):
+     # compute error at vertices
+    d = dvp_["n"].sub(0, deepcopy=True)
+    v = dvp_["n"].sub(1, deepcopy=True)
+
+    # Compute error in L2 norm
+    de_x = interpolate(dx_e, DVP.sub(0).sub(0).collapse())
+    de_y = interpolate(dy_e, DVP.sub(0).sub(1).collapse())
+    ve_x = interpolate(ux_e, DVP.sub(1).sub(0).collapse())
+    ve_y = interpolate(uy_e, DVP.sub(1).sub(1).collapse())
+
+    error_dx = errornorm(de_x, d.sub(0), norm_type="L2")    
+    error_dy = errornorm(de_y, d.sub(1), norm_type="L2")
+
+    error_vx = errornorm(ve_x, v.sub(0), norm_type="L2")
+    error_vy = errornorm(ve_y, v.sub(1), norm_type="L2")
+
+    from IPython import embed; embed(); exit(1)
+    print("t = {0:.3e}".format(t))
+    print("=============================================")
+    print("dx error: {0:.3e}".format(error_dx))
+    print("dy error: {0:.3e}".format(error_dy))
+    print("vx error: {0:.3e}".format(error_vx))
+    print("vy error: {0:.3e}".format(error_vy))
+    print("=============================================")
+
 
 def finished(**namespace):
     pass
