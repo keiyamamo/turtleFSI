@@ -88,6 +88,7 @@ class Wall(SubDomain):
         def inside(self, x, on_boundary):
             return on_boundary
 
+
 def get_mesh_domain_and_boundaries(mesh_size, mesh_type, external_mesh, N,**namespace):
     """
     Here, you have three options to create mesh:
