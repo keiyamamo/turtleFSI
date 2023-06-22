@@ -147,29 +147,40 @@ class ParabolicPressure(UserExpression):
         return ()
 
 
-# class PressureImpulse(UserExpression):
-#     def __init__(self, force_val, t_start,t_end,t,**kwargs):
-#         self.force_val = force_val
-#         self.t_start = t_start
-#         self.t_end = t_end
-#         self.force = 0.0
-#         self.t = t
+class PressureImpulse(UserExpression):
+    def __init__(self, force_val, t_start,t_end, t, dsi, mesh, **kwargs):
+        super().__init__(**kwargs)
+        self.force_val = force_val
+        self.t_start = t_start
+        self.t_end = t_end
+        self.force = 0.0
+        self.t = t
+        self.dsi = dsi # surface integral element
+        self.d = mesh.geometry().dim()
+        self.x = SpatialCoordinate(mesh)
+        # Compute area of boundary tessellation by integrating 1.0 over all facets
+        self.H = assemble(Constant(1.0, name="one")*self.dsi)
+        # Compute barycentre by integrating x components over all facets
+        self.c = [assemble(self.x[i]*self.dsi) / self.H for i in range(self.d)]
+        # Compute radius by taking max radius of boundary points
+        self.r = self.H / 2
+        super().__init__(**kwargs)
 
-#         super().__init__(**kwargs)
+    def update(self, t):
+        self.t = t
 
-#     def update(self, t):
-#         self.t = t
+    def eval(self, value,x):
+        if self.t >= self.t_start and self.t<=self.t_end:
+            self.force = self.force_val 
+        else:
+            self.force = 0.0
+        # Define the parabola
+        r2 = (x[0]-self.c[0])**2 + (x[1]-self.c[1])**2  # radius**2
+        fact_r = 1 - (r2/self.r**2)
+        value[0] = self.force + fact_r
 
-#     def eval(self, value,x):
-#         if self.t >= self.t_start and self.t<=self.t_end:
-#             self.force = self.force_val 
-#         else:
-#             self.force = 0.0
-#         value[0] = self.force
-#         value[1] = 0
-
-#     def value_shape(self):
-#         return (2,)
+    def value_shape(self):
+        return ()
     
 # def initiate(dvp_, DVP, mesh, boundaries, **namespace):
 #     # get the dofs on the fluid inlet boundary
@@ -220,14 +231,16 @@ def create_bcs(DVP, boundaries, v_deg, p_deg, mesh, **namespace):
     # inflow_profile = ('4*1.5*x[1]*(0.41 - x[1]) / pow(0.41, 2)', '0')
 
     # Fluid velocity BCs / velocity at fluid inlet is parabolic profile
-    u_f_inlet = DirichletBC(DVP.sub(1), u_inflow_exp, boundaries, 1)
+    # u_f_inlet = DirichletBC(DVP.sub(1), u_inflow_exp, boundaries, 1)
     # No slip BCs for fluid velocity at solid walls
     u_f_walls = DirichletBC(DVP.sub(1),  ((0.0, 0.0)), boundaries, 3)
 
     # Fluid pressure BCs / pressure at fluid outlet is parabolic profile
-    dsi = ds(2, domain=mesh, subdomain_data=boundaries)
-    p_outlet_exp = ParabolicPressure(t=0.0, t_pressure_ramp=0.2, p_max=1, dsi=dsi, mesh=mesh, degree=p_deg)
-    p_f_outlet = DirichletBC(DVP.sub(2), p_outlet_exp, boundaries, 2)
+    dsi = ds(1, domain=mesh, subdomain_data=boundaries)
+    # p_outlet_exp = ParabolicPressure(t=0.0, t_pressure_ramp=0.2, p_max=1, dsi=dsi, mesh=mesh, degree=p_deg)
+    impulse_exp = PressureImpulse(force_val=50, t_start=0.05,t_end=0.055, t=0.0, dsi=dsi, mesh=mesh)
+    p_f_outlet = DirichletBC(DVP.sub(2), impulse_exp, boundaries, 1)
+    # p_f_outlet = DirichletBC(DVP.sub(2), p_outlet_exp, boundaries, 2)
 
     # ds for fluid inlet 
     # ds = Measure("ds", domain=mesh, subdomain_data=boundaries)
@@ -243,17 +256,18 @@ def create_bcs(DVP, boundaries, v_deg, p_deg, mesh, **namespace):
     # bcp_wall = DirichletBC(DVP.sub(2), Constant(0), boundaries, 3)
     # bcp_out = DirichletBC(DVP.sub(2), Constant(0), boundaries, 2)
     # Assemble boundary conditions
-    bcs = [d_s_inlet, d_s_outlet, v_s_inlet, v_s_outlet, d_f_inlet, d_f_outlet, u_f_walls, u_f_inlet, p_f_outlet]
+    bcs = [d_s_inlet, d_s_outlet, v_s_inlet, v_s_outlet, d_f_inlet, d_f_outlet, u_f_walls, p_f_outlet]
 
-    # return dict(bcs=bcs, F_fluid_linear=F_fluid_linear, impulse_force=impulse_force)
-    return dict(bcs=bcs, u_inflow_exp=u_inflow_exp, p_outlet_exp=p_outlet_exp)
+    return dict(bcs=bcs, u_inflow_exp=u_inflow_exp, impulse_exp=impulse_exp)
+    # return dict(bcs=bcs, u_inflow_exp=u_inflow_exp, p_outlet_exp=p_outlet_exp)
 
 
-def pre_solve(t, u_inflow_exp, p_outlet_exp, **namespace):
+def pre_solve(t, u_inflow_exp, impulse_exp, **namespace):
     # Update the time variable used for the inlet boundary condition
     u_inflow_exp.update(t)
-    p_outlet_exp.update(t)
-    return dict(u_inflow_exp=u_inflow_exp, p_outlet_exp=p_outlet_exp)
+    impulse_exp.update(t)
+    # p_outlet_exp.update(t)
+    return dict(u_inflow_exp=u_inflow_exp, impulse_exp=impulse_exp)
 
 # def pre_solve(t, impulse_force, **namespace):
 #     # Update the time variable used for the inlet boundary condition
