@@ -1,8 +1,7 @@
-from os import path, makedirs, getcwd
-import os, math
-from pprint import pprint
+from os import path
 import numpy as np
 from numpy import genfromtxt
+
 from dolfin import *
 from turtleFSI.problems import *
 from utils.Womersley import make_womersley_bcs, compute_boundary_geometry_acrn
@@ -69,10 +68,11 @@ def set_problem_parameters(default_variables, **namespace):
         save_step=1, # Save frequency of files for visualisation
         save_deg=save_deg_sim,          # Degree of the functions saved for visualisation '1' '2' '3' etc... (high value can slow down simulation significantly!)
         fsi_region=[x_sphere,y_sphere,z_sphere,r_sphere], # X, Y, and Z coordinate of FSI region center, radius of spherical deformable region (outside this region the walls are rigid)
-
+        p_wave_file = "p_t.csv", # File containing the pressure wave
     ))
 
     return default_variables
+
 
 def get_mesh_domain_and_boundaries(mesh_file,fsi_region, fsi_id, rigid_id, outer_id, folder, **namespace):
     # Read mesh
@@ -96,13 +96,11 @@ def get_mesh_domain_and_boundaries(mesh_file,fsi_region, fsi_id, rigid_id, outer
     for submesh_facet in facets(mesh):
         idx_facet = boundaries.array()[i]
         if idx_facet == fsi_id or idx_facet == outer_id:
-            vert = submesh_facet.entities(0)
             mid = submesh_facet.midpoint()
             dist_sph_center = sqrt((mid.x()-sph_x)**2 + (mid.y()-sph_y)**2 + (mid.z()-sph_z)**2)
             if dist_sph_center > sph_rad:
                 boundaries.array()[i] = rigid_id  # changed "fsi" idx to "rigid wall" idx
         i += 1
-
 
     # f = File(f'{mesh_file}.pvd')
     # f << boundaries
@@ -110,7 +108,6 @@ def get_mesh_domain_and_boundaries(mesh_file,fsi_region, fsi_id, rigid_id, outer
     # exit(1)
 
     return mesh, domains, boundaries
-
 
 
 class InnerP(UserExpression):
@@ -127,7 +124,6 @@ class InnerP(UserExpression):
         self.t = t
         # apply a sigmoid ramp to the pressure 
         if self.t < self.t_ramp:
-            # ramp_factor = 1 / (1 + np.exp(-10*(self.t/self.t_ramp-0.5)))
             ramp_factor = (-1/2)*np.cos(3.14159*self.t/self.t_ramp) + 1/2
         else:
             ramp_factor = 1.0
@@ -145,17 +141,9 @@ class InnerP(UserExpression):
         return ()
 
 
-def create_bcs(t, v_, DVP, mesh, boundaries, domains, mu_f,
+def create_bcs(t, DVP, mesh, boundaries, mu_f,
                fsi_id, inlet_id, inlet_outlet_s_id,
-               rigid_id, psi, F_solid_linear, p_deg, Q_file, Q_mean, **namespace):
-
-    # Fluid velocity BCs
-    dsi = ds(inlet_id, domain=mesh, subdomain_data=boundaries)
-    n = FacetNormal(mesh)
-    ndim = mesh.geometry().dim()
-    ni = np.array([assemble(n[i]*dsi) for i in range(ndim)])
-    n_len = np.sqrt(sum([ni[i]**2 for i in range(ndim)]))  # Should always be 1!?
-    normal = ni/n_len
+               rigid_id, psi, F_solid_linear, p_deg, Q_file, Q_mean, p_wave_file, **namespace):
 
     # Load normalized time and flow rate values
     t_values, Q_ = np.loadtxt(path.join(path.dirname(path.abspath(__file__)), Q_file)).T
@@ -184,16 +172,17 @@ def create_bcs(t, v_, DVP, mesh, boundaries, domains, mu_f,
     # Define the pressure condition (apply to inner surface, numerical instability results from applying to outlet)
     #dso = ds(outlet_id1, domain=mesh, subdomain_data=boundaries) # Outlet surface # Maybe try applying to all outlets???
     dSS = Measure("dS", domain=mesh, subdomain_data=boundaries)
-    p_t_file = genfromtxt('p_t.csv', delimiter=',')
+    p_t_file = genfromtxt(p_wave_file, delimiter=',')
     t_pressure=p_t_file[1:,0]
     pressure_PA=p_t_file[1:,1]
     p_out_bc_val = InnerP(t=0.0, t_p=t_pressure, t_ramp=0.2, p_PA=pressure_PA, degree=p_deg)
+    n = FacetNormal(mesh)
     F_solid_linear += p_out_bc_val * inner(n('+'), psi('+'))*dSS(fsi_id)  # defined on the reference domain
 
     return dict(bcs=bcs, inlet=inlet, p_out_bc_val=p_out_bc_val, F_solid_linear=F_solid_linear)
 
 
-def pre_solve(t, v_, DVP, inlet, p_out_bc_val, **namespace):
+def pre_solve(t, inlet, p_out_bc_val, **namespace):
     for uc in inlet:
         # Update the time variable used for the inlet boundary condition
         uc.set_t(t)
