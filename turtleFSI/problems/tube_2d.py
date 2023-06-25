@@ -5,6 +5,9 @@ from turtleFSI.problems import *
 """
 Last update: 2023--6-22
 2D tube case intended to simulate propagation of a pressure wave in a tube
+Log note for myself:
+    - 6/25 I shouldn't have used no-slip boundary conditions on the tube wall.
+           Parabloic pressure did not seem to work. Could be used if the parabolic profile is tuned well. 
 """
 
 def set_problem_parameters(default_variables, **namespace):
@@ -178,9 +181,10 @@ class PressureImpulse(UserExpression):
         r2 = (x[0]-self.c[0])**2 + (x[1]-self.c[1])**2  # radius**2
         fact_r = 1 - (r2/self.r**2)
         value[0] = self.force + fact_r
+        value[1] = 0
 
     def value_shape(self):
-        return ()
+        return (2, )
     
 # def initiate(dvp_, DVP, mesh, boundaries, **namespace):
 #     # get the dofs on the fluid inlet boundary
@@ -196,7 +200,7 @@ class PressureImpulse(UserExpression):
 #     # return dict(dvp_=dvp_)
 #     pass
 
-def create_bcs(DVP, boundaries, v_deg, p_deg, mesh, **namespace):
+def create_bcs(DVP, boundaries, v_deg, p_deg, psi, mesh, F_fluid_linear, **namespace):
 
     if MPI.rank(MPI.comm_world) == 0:
         print("Create bcs")
@@ -218,34 +222,33 @@ def create_bcs(DVP, boundaries, v_deg, p_deg, mesh, **namespace):
     d_f_outlet = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, 2)
 
     # Fluid velocity BCs
-    dsi = ds(1, domain=mesh, subdomain_data=boundaries)
-    n = FacetNormal(mesh)
-    ndim = mesh.geometry().dim()
-    ni = np.array([assemble(n[i]*dsi) for i in range(ndim)])
-    n_len = np.sqrt(sum([ni[i]**2 for i in range(ndim)]))  
-    normal = ni/n_len
+    # dsi = ds(1, domain=mesh, subdomain_data=boundaries)
+    # n = FacetNormal(mesh)
+    # ndim = mesh.geometry().dim()
+    # ni = np.array([assemble(n[i]*dsi) for i in range(ndim)])
+    # n_len = np.sqrt(sum([ni[i]**2 for i in range(ndim)]))  
+    # normal = ni/n_len
     # Parabolic profile
-    vel_t_ramp = 0.2
-    u_max = 0.75
-    u_inflow_exp = VelInPara(t=0.0, vel_t_ramp=vel_t_ramp, u_max=u_max, n=normal, dsi=dsi, mesh=mesh, degree=v_deg)
+    # vel_t_ramp = 0.6
+    # u_max = 0.5
+    # u_inflow_exp = VelInPara(t=0.0, vel_t_ramp=vel_t_ramp, u_max=u_max, n=normal, dsi=dsi, mesh=mesh, degree=v_deg)
     # inflow_profile = ('4*1.5*x[1]*(0.41 - x[1]) / pow(0.41, 2)', '0')
 
     # Fluid velocity BCs / velocity at fluid inlet is parabolic profile
     # u_f_inlet = DirichletBC(DVP.sub(1), u_inflow_exp, boundaries, 1)
-    # No slip BCs for fluid velocity at solid walls
-    u_f_walls = DirichletBC(DVP.sub(1),  ((0.0, 0.0)), boundaries, 3)
+
 
     # Fluid pressure BCs / pressure at fluid outlet is parabolic profile
-    dsi = ds(1, domain=mesh, subdomain_data=boundaries)
+    dsi = ds(2, domain=mesh, subdomain_data=boundaries)
     # p_outlet_exp = ParabolicPressure(t=0.0, t_pressure_ramp=0.2, p_max=1, dsi=dsi, mesh=mesh, degree=p_deg)
-    impulse_exp = PressureImpulse(force_val=50, t_start=0.05,t_end=0.055, t=0.0, dsi=dsi, mesh=mesh)
-    p_f_outlet = DirichletBC(DVP.sub(2), impulse_exp, boundaries, 1)
-    # p_f_outlet = DirichletBC(DVP.sub(2), p_outlet_exp, boundaries, 2)
+    # impulse_exp = PressureImpulse(force_val=50, t_start=0.05,t_end=0.055, t=0.0, dsi=dsi, mesh=mesh)
+    # p_f_outlet = DirichletBC(DVP.sub(2), impulse_exp, boundaries, 1)
+    p_f_outlet = DirichletBC(DVP.sub(2), Constant(-50), boundaries, 2)
 
     # ds for fluid inlet 
-    # ds = Measure("ds", domain=mesh, subdomain_data=boundaries)
-    # impulse_force = PressureImpulse(force_val=50, t_start=0.005, t_end=0.02, t=0.0)
-    # F_fluid_linear -= inner(impulse_force, psi)*ds(1)
+    
+    # impulse_force = PressureImpulse(force_val=50, t_start=0.005, t_end=0.02, t=0.0, dsi=dsi, mesh=mesh)
+    # F_fluid_linear -= inner(impulse_force, psi)*dsi 
 
     # V = FunctionSpace(mesh, 'CG', 1)
     # bc = DirichletBC(V, Constant(0), boundaries, 1)
@@ -256,18 +259,17 @@ def create_bcs(DVP, boundaries, v_deg, p_deg, mesh, **namespace):
     # bcp_wall = DirichletBC(DVP.sub(2), Constant(0), boundaries, 3)
     # bcp_out = DirichletBC(DVP.sub(2), Constant(0), boundaries, 2)
     # Assemble boundary conditions
-    bcs = [d_s_inlet, d_s_outlet, v_s_inlet, v_s_outlet, d_f_inlet, d_f_outlet, u_f_walls, p_f_outlet]
+    bcs = [d_s_inlet, d_s_outlet, v_s_inlet, v_s_outlet, d_f_inlet, d_f_outlet, p_f_outlet]
 
-    return dict(bcs=bcs, u_inflow_exp=u_inflow_exp, impulse_exp=impulse_exp)
+    return dict(bcs=bcs)
     # return dict(bcs=bcs, u_inflow_exp=u_inflow_exp, p_outlet_exp=p_outlet_exp)
 
 
-def pre_solve(t, u_inflow_exp, impulse_exp, **namespace):
+# def pre_solve(t, **namespace):
     # Update the time variable used for the inlet boundary condition
-    u_inflow_exp.update(t)
-    impulse_exp.update(t)
+    # u_inflow_exp.update(t)
     # p_outlet_exp.update(t)
-    return dict(u_inflow_exp=u_inflow_exp, impulse_exp=impulse_exp)
+    # return dict(u_inflow_exp=u_inflow_exp)
 
 # def pre_solve(t, impulse_force, **namespace):
 #     # Update the time variable used for the inlet boundary condition
