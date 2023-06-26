@@ -109,7 +109,6 @@ class VelInPara(UserExpression):
         value[0] = -self.n[0] * (interp_PA) *fact_r  # *self.t # x-values
         value[1] = -self.n[1] * (interp_PA) *fact_r  # *self.t # y-values
 
-
     def value_shape(self):
         return (2,)
 
@@ -185,35 +184,18 @@ class PressureImpulse(UserExpression):
 
     def value_shape(self):
         return (2, )
-    
-# def initiate(dvp_, DVP, mesh, boundaries, **namespace):
-#     # get the dofs on the fluid inlet boundary
-#     # V = FunctionSpace(mesh, 'CG', 1)
-#     # bc = DirichletBC(V, Constant(0), boundaries, 1)
-#     # bdry_dofs = np.array(list(bc.get_boundary_values().keys())) 
-#     # p_n = dvp_["n"].sub(2, deepcopy=True) 
-#     # p_n.vector()[bdry_dofs] = 5e3
-#     # bc = DirichletBC(DVP.sub(2), p_n, boundaries, 1)
-    
-#     # bc.apply(dvp_["n"].vector())
 
-#     # return dict(dvp_=dvp_)
-#     pass
 
 def create_bcs(DVP, boundaries, v_deg, p_deg, psi, mesh, F_fluid_linear, **namespace):
 
     if MPI.rank(MPI.comm_world) == 0:
         print("Create bcs")
 
-    # Solid displacement BCs / x-component of displacement at solid inlet and outlet is 0
-    # d_s_inlet = DirichletBC(DVP.sub(0).sub(0), Constant(0), boundaries, 4)
-    # d_s_outlet = DirichletBC(DVP.sub(0).sub(0), Constant(0), boundaries, 5)
+    # Solid displacement BCs / displacement at solid inlet and outlet is 0
     d_s_inlet = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, 4)
     d_s_outlet = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, 5)
     
-    # Solid velocity BCs / x-component of velocity at solid inlet and outlet is 0
-    # v_s_inlet = DirichletBC(DVP.sub(1).sub(0), Constant(0), boundaries, 4)
-    # v_s_outlet = DirichletBC(DVP.sub(1).sub(0), Constant(0), boundaries, 5)
+    # Solid velocity BCs / velocity at solid inlet and outlet is 0
     v_s_inlet = DirichletBC(DVP.sub(1), ((0.0, 0.0)), boundaries, 4)
     v_s_outlet = DirichletBC(DVP.sub(1), ((0.0, 0.0)), boundaries, 5)
 
@@ -222,20 +204,10 @@ def create_bcs(DVP, boundaries, v_deg, p_deg, psi, mesh, F_fluid_linear, **names
     d_f_outlet = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, 2)
 
     # Fluid velocity BCs
-    # dsi = ds(1, domain=mesh, subdomain_data=boundaries)
-    # n = FacetNormal(mesh)
-    # ndim = mesh.geometry().dim()
-    # ni = np.array([assemble(n[i]*dsi) for i in range(ndim)])
-    # n_len = np.sqrt(sum([ni[i]**2 for i in range(ndim)]))  
-    # normal = ni/n_len
-    # Parabolic profile
-    # vel_t_ramp = 0.6
-    # u_max = 0.5
-    # u_inflow_exp = VelInPara(t=0.0, vel_t_ramp=vel_t_ramp, u_max=u_max, n=normal, dsi=dsi, mesh=mesh, degree=v_deg)
-    # inflow_profile = ('4*1.5*x[1]*(0.41 - x[1]) / pow(0.41, 2)', '0')
+    inflow_profile = ('4*1.5*x[1]*(0.41 - x[1]) / pow(0.41, 2)', '0')
 
     # Fluid velocity BCs / velocity at fluid inlet is parabolic profile
-    # u_f_inlet = DirichletBC(DVP.sub(1), u_inflow_exp, boundaries, 1)
+    u_f_inlet = DirichletBC(DVP.sub(1), inflow_profile, boundaries, 1)
 
 
     # Fluid pressure BCs / pressure at fluid outlet is parabolic profile
@@ -243,23 +215,13 @@ def create_bcs(DVP, boundaries, v_deg, p_deg, psi, mesh, F_fluid_linear, **names
     # p_outlet_exp = ParabolicPressure(t=0.0, t_pressure_ramp=0.2, p_max=1, dsi=dsi, mesh=mesh, degree=p_deg)
     # impulse_exp = PressureImpulse(force_val=50, t_start=0.05,t_end=0.055, t=0.0, dsi=dsi, mesh=mesh)
     # p_f_outlet = DirichletBC(DVP.sub(2), impulse_exp, boundaries, 1)
-    p_f_outlet = DirichletBC(DVP.sub(2), Constant(-50), boundaries, 2)
 
     # ds for fluid inlet 
     
     # impulse_force = PressureImpulse(force_val=50, t_start=0.005, t_end=0.02, t=0.0, dsi=dsi, mesh=mesh)
     # F_fluid_linear -= inner(impulse_force, psi)*dsi 
-
-    # V = FunctionSpace(mesh, 'CG', 1)
-    # bc = DirichletBC(V, Constant(0), boundaries, 1)
-    # bdry_dofs = np.array(list(bc.get_boundary_values().keys())) 
-    # p_n = dvp_["n"].sub(2, deepcopy=True) 
-    # p_n.vector()[bdry_dofs] = 5e3
-    # bcp = DirichletBC(DVP.sub(2), p_n, boundaries, 1)
-    # bcp_wall = DirichletBC(DVP.sub(2), Constant(0), boundaries, 3)
-    # bcp_out = DirichletBC(DVP.sub(2), Constant(0), boundaries, 2)
-    # Assemble boundary conditions
-    bcs = [d_s_inlet, d_s_outlet, v_s_inlet, v_s_outlet, d_f_inlet, d_f_outlet, p_f_outlet]
+    
+    bcs = [d_s_inlet, d_s_outlet, v_s_inlet, v_s_outlet, d_f_inlet, d_f_outlet]
 
     return dict(bcs=bcs)
     # return dict(bcs=bcs, u_inflow_exp=u_inflow_exp, p_outlet_exp=p_outlet_exp)
