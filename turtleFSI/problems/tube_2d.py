@@ -1,6 +1,7 @@
 from dolfin import *
 
 from turtleFSI.problems import *
+from turtleFSI.modules.common import J_, F_
 
 """
 Last update: 2023--6-22
@@ -186,7 +187,7 @@ class PressureImpulse(UserExpression):
         return (2, )
 
 
-def create_bcs(DVP, boundaries, v_deg, p_deg, psi, mesh, F_fluid_linear, **namespace):
+def create_bcs(DVP, boundaries, dvp_, v_deg, p_deg, psi, mesh, F_fluid_nonlinear, **namespace):
 
     if MPI.rank(MPI.comm_world) == 0:
         print("Create bcs")
@@ -204,14 +205,12 @@ def create_bcs(DVP, boundaries, v_deg, p_deg, psi, mesh, F_fluid_linear, **names
     d_f_outlet = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, 2)
 
     # Fluid velocity BCs
-    inflow_profile = ('4*1.5*x[1]*(0.41 - x[1]) / pow(0.41, 2)', '0')
+    inflow_profile = ('0.01*1.5*(x[1] + 0.001)*(0.001 - x[1]) / pow(0.001, 2)', '0')
 
     # Fluid velocity BCs / velocity at fluid inlet is parabolic profile
-    u_f_inlet = DirichletBC(DVP.sub(1), inflow_profile, boundaries, 1)
-
+    u_f_inlet = DirichletBC(DVP.sub(1), Expression(inflow_profile, degree=3), boundaries, 1)
 
     # Fluid pressure BCs / pressure at fluid outlet is parabolic profile
-    dsi = ds(2, domain=mesh, subdomain_data=boundaries)
     # p_outlet_exp = ParabolicPressure(t=0.0, t_pressure_ramp=0.2, p_max=1, dsi=dsi, mesh=mesh, degree=p_deg)
     # impulse_exp = PressureImpulse(force_val=50, t_start=0.05,t_end=0.055, t=0.0, dsi=dsi, mesh=mesh)
     # p_f_outlet = DirichletBC(DVP.sub(2), impulse_exp, boundaries, 1)
@@ -220,10 +219,18 @@ def create_bcs(DVP, boundaries, v_deg, p_deg, psi, mesh, F_fluid_linear, **names
     
     # impulse_force = PressureImpulse(force_val=50, t_start=0.005, t_end=0.02, t=0.0, dsi=dsi, mesh=mesh)
     # F_fluid_linear -= inner(impulse_force, psi)*dsi 
-    
-    bcs = [d_s_inlet, d_s_outlet, v_s_inlet, v_s_outlet, d_f_inlet, d_f_outlet]
 
-    return dict(bcs=bcs)
+    # Neumann BC for fluid outlet as traction / here we assume that the pressure is the dominant term in the stress tensor
+    dsi = ds(2, domain=mesh, subdomain_data=boundaries)
+    ni = FacetNormal(dsi)
+    pf = Constant(100) * Identity(2)
+    d = dvp_["n"].sub(0, deepcopy=True)
+    F_fluid_nonlinear -= inner(J_(d) * pf * inv(F_(d)).T * ni, psi) * dsi
+
+    bcs = [u_f_inlet, d_s_inlet, d_s_outlet, v_s_inlet, v_s_outlet, d_f_inlet, d_f_outlet]
+
+    # return dict(bcs=bcs)
+    return dict(bcs=bcs, F_fluid_nonlinear=F_fluid_nonlinear)
     # return dict(bcs=bcs, u_inflow_exp=u_inflow_exp, p_outlet_exp=p_outlet_exp)
 
 
