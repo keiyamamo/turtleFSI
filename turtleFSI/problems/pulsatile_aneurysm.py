@@ -69,6 +69,7 @@ def set_problem_parameters(default_variables, **namespace):
         save_deg=save_deg_sim,          # Degree of the functions saved for visualisation '1' '2' '3' etc... (high value can slow down simulation significantly!)
         fsi_region=[x_sphere,y_sphere,z_sphere,r_sphere], # X, Y, and Z coordinate of FSI region center, radius of spherical deformable region (outside this region the walls are rigid)
         p_wave_file = "p_t.csv", # File containing the pressure wave
+        t_ramp=0.2,
     ))
 
     return default_variables
@@ -141,7 +142,7 @@ class InnerP(UserExpression):
         return ()
 
 
-def create_bcs(t, DVP, mesh, boundaries, mu_f,
+def create_bcs(t, DVP, mesh, boundaries, mu_f, t_ramp,
                fsi_id, inlet_id, inlet_outlet_s_id,
                rigid_id, psi, F_solid_linear, p_deg, Q_file, Q_mean, p_wave_file, **namespace):
 
@@ -175,7 +176,8 @@ def create_bcs(t, DVP, mesh, boundaries, mu_f,
     p_t_file = genfromtxt(p_wave_file, delimiter=',')
     t_pressure=p_t_file[1:,0]
     pressure_PA=p_t_file[1:,1]
-    p_out_bc_val = InnerP(t=0.0, t_p=t_pressure, t_ramp=0.2, p_PA=pressure_PA, degree=p_deg)
+    print(t_ramp)
+    p_out_bc_val = InnerP(t=0.0, t_p=t_pressure, t_ramp=t_ramp, p_PA=pressure_PA, degree=p_deg)
     n = FacetNormal(mesh)
     F_solid_linear += p_out_bc_val * inner(n('+'), psi('+'))*dSS(fsi_id)  # defined on the reference domain
 
