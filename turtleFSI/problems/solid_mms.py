@@ -92,18 +92,29 @@ def initiate(F_solid_linear, theta, dx_mms, dy_mms, dt,
 
     # Add F to variational formulation
     x = SpatialCoordinate(mesh) # needed for eval 
-    for th, t_n in [(theta, "t_e_n"), ((1 - theta), "t_e_n_1")]:
-        d_vec = as_vector([eval(dx_mms.replace("t_e", t_n)),
-                           eval(dy_mms.replace("t_e", t_n))])
+    # for th, t_n in [(theta, "t_e_n"), ((1 - theta), "t_e_n_1")]:
+    #     d_vec = as_vector([eval(dx_mms.replace("t_e", t_n)),
+    #                        eval(dy_mms.replace("t_e", t_n))])
         
-        # u_vec = as_vector([eval(ux_mms.replace("t_e", t_n)),
-                            # eval(uy_mms.replace("t_e", t_n))])
+    #     # u_vec = as_vector([eval(ux_mms.replace("t_e", t_n)),
+    #                         # eval(uy_mms.replace("t_e", t_n))])
         
-        t_n = eval(t_n)
-        f_tmp = diff(diff(d_vec, t_n), t_n) - div(Piola1(d_vec, solid_properties[0]))
-        # NOTE: using velocity does not change the result
-        # f_tmp = diff(u_vec, t_n) - div(Piola1(d_vec, solid_properties[0]))
-        F_solid_linear -= th * inner(f_tmp, psi)*dx_s[0]
+    #     t_n = eval(t_n)
+    #     f_tmp = diff(diff(d_vec, t_n), t_n) - div(Piola1(d_vec, solid_properties[0]))
+    #     F_solid_linear -= th * inner(f_tmp, psi)*dx_s[0]
+
+    t_n = t_e_n
+    # d_vec = as_vector([eval(dx_mms.replace("t_e", t_n)),
+    #                     eval(dy_mms.replace("t_e", t_n))])
+
+    d_vec = as_vector([eval(dx_mms),
+                    eval(dy_mms)])
+
+    # u_vec = as_vector([eval(ux_mms.replace("t_e", t_n)),
+                        # eval(uy_mms.replace("t_e", t_n))])
+    
+    f_tmp = diff(diff(d_vec, t_n), t_n) - div(Piola1(d_vec, solid_properties[0]))
+    F_solid_linear -= inner(f_tmp, psi)*dx_s[0]
     
     # Set manufactured solution as initial condition for n-1 (t = 0)
     assign(dvp_["n-1"].sub(0).sub(0), project(dx_e, dvp_["n"].sub(0).sub(0).function_space().collapse()))
@@ -155,25 +166,25 @@ def post_solve(DVP, t, dt, dvp_, dx_e, dy_e, ux_e, uy_e, total_error_d, verbose,
     error_vx = errornorm(ve_x, v.sub(0), norm_type="L2")
     error_vy = errornorm(ve_y, v.sub(1), norm_type="L2")
 
-    # plt.figure(1)
-    # plot(d.sub(0), title="dx")
-    # plt.figure(2)
-    # plot(d.sub(1), title="dy")
-    # plt.figure(3)
-    # plot(v.sub(0), title="vx")
-    # plt.figure(4)
-    # plot(v.sub(1), title="vy")
-    # plt.figure(5)
-    # plot(de_x, title="dx_e")
-    # plt.figure(6)
-    # plot(de_y, title="dy_e")
-    # plt.figure(7)
-    # plot(ve_x, title="vx_e")
-    # plt.figure(8)
-    # plot(ve_y, title="vy_e")
-    # plt.show()
+    plt.figure(1)
+    plot(d.sub(0), title="dx")
+    plt.figure(2)
+    plot(d.sub(1), title="dy")
+    plt.figure(3)
+    plot(v.sub(0), title="vx")
+    plt.figure(4)
+    plot(v.sub(1), title="vy")
+    plt.figure(5)
+    plot(de_x, title="dx_e")
+    plt.figure(6)
+    plot(de_y, title="dy_e")
+    plt.figure(7)
+    plot(ve_x, title="vx_e")
+    plt.figure(8)
+    plot(ve_y, title="vy_e")
+    plt.show()
 
-    # exit(1)
+    exit(1)
     if verbose:
         print("t = {0:.3e}".format(t))
         print("=============================================")
