@@ -5,7 +5,7 @@
 
 from turtleFSI.modules import *
 from dolfin import ds, MPI
-from dolfin.cpp.mesh import MeshFunctionSizet, Mesh
+from dolfin.cpp.mesh import MeshFunctionSizet
 from typing import Union
 
 """
@@ -17,7 +17,7 @@ def assign_domain_properties(dx: ufl.measure.Measure, dx_f_id: Union[int, list],
                              mu_f: Union[float, list], fluid_properties: Union[list, dict], dx_s_id: Union[int, list], 
                              material_model: str, rho_s: Union[float, list], mu_s: Union[float, list], lambda_s: Union[float, list],
                              solid_properties: Union[list, dict], domains: MeshFunctionSizet, ds_s_id: Union[int, list],
-                             boundaries: MeshFunctionSizet, robin_bc: bool, mesh:Mesh, **namespace):
+                             boundaries: MeshFunctionSizet, robin_bc: bool, **namespace):
     """
     Assigns solid and fluid properties to each region.   
 
@@ -108,7 +108,7 @@ def assign_domain_properties(dx: ufl.measure.Measure, dx_f_id: Union[int, list],
         # In case there are multiple solid boundaries, we assume that ds_s_id is a list and create ds_s for each solid boundary
         if isinstance(ds_s_id, list):
             for i, solid_boundaries in enumerate(ds_s_id):
-                ds_s[i] = ds(solid_boundaries, domain=mesh, subdomain_data=boundaries)
+                ds_s[i] = ds(solid_boundaries, subdomain_data=boundaries)
             ds_s_ext_id_list=ds_s_id
         else:
             ds_s[0] = ds(ds_s_id, subdomain_data=boundaries)
