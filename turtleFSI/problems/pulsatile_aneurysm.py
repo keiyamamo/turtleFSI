@@ -176,7 +176,6 @@ def create_bcs(t, DVP, mesh, boundaries, mu_f, t_ramp,
     p_t_file = genfromtxt(p_wave_file, delimiter=',')
     t_pressure=p_t_file[1:,0]
     pressure_PA=p_t_file[1:,1]
-    print(t_ramp)
     p_out_bc_val = InnerP(t=0.0, t_p=t_pressure, t_ramp=t_ramp, p_PA=pressure_PA, degree=p_deg)
     n = FacetNormal(mesh)
     F_solid_linear += p_out_bc_val * inner(n('+'), psi('+'))*dSS(fsi_id)  # defined on the reference domain
