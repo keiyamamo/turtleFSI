@@ -317,9 +317,14 @@ def write_solution(d, v, p, d_file, v_file, p_file, t):
     p.rename("Pressure", "p") 
 
     # Write results
-    d_file.write_checkpoint(d, 'displacement', t, XDMFFile.Encoding.HDF5, True)
-    v_file.write_checkpoint(v, 'velocity', t, XDMFFile.Encoding.HDF5, True)
-    p_file.write_checkpoint(p, 'pressure', t, XDMFFile.Encoding.HDF5, True)
+    d_file.write(d, t)
+    v_file.write(v, t)
+    p_file.write(p, t)
+
+    # using checklpointing increases the file size a lot (Kei 2023-07-02)
+    # d_file.write_checkpoint(d, 'displacement', t, XDMFFile.Encoding.HDF5, True)
+    # v_file.write_checkpoint(v, 'velocity', t, XDMFFile.Encoding.HDF5, True)
+    # p_file.write_checkpoint(p, 'pressure', t, XDMFFile.Encoding.HDF5, True)
 
 
 
