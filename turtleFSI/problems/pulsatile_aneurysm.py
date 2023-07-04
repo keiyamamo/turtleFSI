@@ -26,7 +26,7 @@ def set_problem_parameters(default_variables, **namespace):
     dt = 0.00033964286
     mesh_path = "file_case9_el047"
     save_deg_sim = 2
-    Q_mean = 1.9275E-06
+    q_mean = 1.9275E-06
 
     # Overwrite default values
     E_s_val = 1E6
@@ -49,8 +49,8 @@ def set_problem_parameters(default_variables, **namespace):
         outer_id=33,  # outer surface
         folder=mesh_path,
         mesh_file=mesh_path,
-        Q_file="MCA_10", # This is the location of CFD results used to prescribe the inlet velocity profile
-        Q_mean=Q_mean,#1.9275E-06, # Problem specific
+        q_file="MCA_10", # This is the location of CFD results used to prescribe the inlet velocity profile
+        q_mean=q_mean,#1.9275E-06, # Problem specific
         theta=0.501, # Theta scheme (implicit/explicit time stepping)
         rho_f=1.000E3,    # Fluid density [kg/m3]
         mu_f=3.5E-3,       # Fluid dynamic viscosity [Pa.s]
@@ -145,11 +145,11 @@ class InnerP(UserExpression):
 
 def create_bcs(t, DVP, mesh, boundaries, mu_f, t_ramp,
                fsi_id, inlet_id, inlet_outlet_s_id,
-               rigid_id, psi, F_solid_linear, p_deg, Q_file, Q_mean, p_wave_file, **namespace):
+               rigid_id, psi, F_solid_linear, p_deg, q_file, q_mean, p_wave_file, **namespace):
 
     # Load normalized time and flow rate values
-    t_values, Q_ = np.loadtxt(path.join(path.dirname(path.abspath(__file__)), Q_file)).T
-    Q_values = Q_mean * Q_  # Specific flow rate = Normalized flow wave form * Prescribed flow rate
+    t_values, Q_ = np.loadtxt(path.join(path.dirname(path.abspath(__file__)), q_file)).T
+    Q_values = q_mean * Q_  # Specific flow rate = Normalized flow wave form * Prescribed flow rate
     tmp_area, tmp_center, tmp_radius, tmp_normal = compute_boundary_geometry_acrn(mesh, inlet_id, boundaries)
 
     # Create Womersley boundary condition at inlet
