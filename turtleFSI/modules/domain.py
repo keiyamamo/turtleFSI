@@ -60,8 +60,10 @@ def assign_domain_properties(mesh, dx, dx_f_id, rho_f, mu_f, fluid_properties, d
         ds_s = {}
         if isinstance(ds_s_id, list): # If ds_s_id is a list (i.e, if there are multiple boundary regions):
             for i, solid_boundaries in enumerate(ds_s_id):
-                ds_s[i] = ds(solid_boundaries, subdomain_data=boundaries) # Create ds_s for each boundary
-                # ds_s[i] = Measure('dS', domain=mesh, subdomain_data=boundaries, subdomain_id=4)
+                if namespace["problem"] == "CircleinFluid":
+                    ds_s[i] = Measure('dS', domain=mesh, subdomain_data=boundaries, subdomain_id=4)
+                else:
+                    ds_s[i] = ds(solid_boundaries, subdomain_data=boundaries) # Create ds_s for each boundary
 
             ds_s_ext_id_list=ds_s_id
         else:

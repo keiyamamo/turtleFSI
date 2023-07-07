@@ -11,7 +11,7 @@ _compiler_parameters = dict(parameters["form_compiler"])
 
 def set_problem_parameters(default_variables, **namespace):
     # set problem parameters values
-    E_s_val = 1E6                            # Young modulus (elasticity) [Pa] Increased a lot for the 2D case
+    E_s_val = 1E6                              # Young modulus (elasticity) [Pa] Increased a lot for the 2D case
     nu_s_val = 0.45                            # Poisson ratio (compressibility)
     mu_s_val = E_s_val / (2 * (1 + nu_s_val))  # Shear modulus
     lambda_s_val = nu_s_val * 2. * mu_s_val / (1. - 2. * nu_s_val)
@@ -19,7 +19,7 @@ def set_problem_parameters(default_variables, **namespace):
     # define and set problem variables values
     default_variables.update(dict(
         T=0.5,                               # Simulation end time
-        dt=0.0005,                            # Time step size
+        dt=0.0005,                           # Time step size
         theta=0.501,                         # Theta scheme (implicit/explicit time stepping): 0.5 + dt
         atol=1e-7,                           # Absolute tolerance in the Newton solver
         rtol=1e-7,                           # Relative tolerance in the Newton solver
@@ -28,22 +28,21 @@ def set_problem_parameters(default_variables, **namespace):
         ds_s_id=[1],                         # IDs of solid external boundaries for Robin BC (external wall + solid outlet)
         rho_f=1.025E3,                       # Fluid density [kg/m3]
         mu_f=1.0,                            # Fluid dynamic viscosity [Pa.s]
-        rho_s=2E3,                         # Solid density [kg/m3]
+        rho_s=2E3,                           # Solid density [kg/m3]
         mu_s=mu_s_val,                       # Solid shear modulus or 2nd Lame Coef. [Pa]
         nu_s=nu_s_val,                       # Solid Poisson ratio [-]
         lambda_s=lambda_s_val,               # Solid 1rst Lamé coef. [Pa]
-        k_s = 51E5,                         # elastic response necesary for RobinBC
-        c_s = 9E2,                             # viscoelastic response necesary for RobinBC
-        extrapolation="laplace",             # laplace, elastic, biharmonic, no-extrapolation
-        extrapolation_sub_type="constant",   # constant, small_constant, volume, volume_change, bc1, bc2
-        recompute=5,                        # Number of iterations before recompute Jacobian. 
+        k_s = 51E5,                          # elastic response necesary for RobinBC
+        c_s = 0.1,                             # viscoelastic response necesary for RobinBC
+        extrapolation="no_extrapolation",             # laplace, elastic, biharmonic, no-extrapolation
+        recompute=5,                         # Number of iterations before recompute Jacobian. 
         recompute_tstep=10,                  # Number of time steps before recompute Jacobian. 
         save_step=1,                         # Save frequency of files for visualisation
-        folder="circle",              # Folder where the results will be stored
+        folder="circle",                     # Folder where the results will be stored
         checkpoint_step=50,                  # checkpoint frequency
-        fluid="no_fluid",                  # Do not solve for the fluid
+        fluid="no_fluid",                    # Do not solve for the fluid
         # gravity = 2.0,
-        save_deg=1                           # Default could be 1. 1 saves the nodal values only while 2 takes full advantage of the mide side nodes available in the P2 solution. P2 for nice visualisations
+        save_deg=1                           
     ))
 
     return default_variables

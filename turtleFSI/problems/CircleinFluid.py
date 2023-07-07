@@ -18,7 +18,7 @@ def set_problem_parameters(default_variables, **namespace):
     # define and set problem variables values
     default_variables.update(dict(
         T=0.5,                               # Simulation end time
-        dt=0.0005,                            # Time step size
+        dt=0.0005,                           # Time step size
         theta=0.501,                         # Theta scheme (implicit/explicit time stepping): 0.5 + dt
         atol=1e-7,                           # Absolute tolerance in the Newton solver
         rtol=1e-7,                           # Relative tolerance in the Newton solver
