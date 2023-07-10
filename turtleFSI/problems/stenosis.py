@@ -84,15 +84,15 @@ def get_mesh_domain_and_boundaries(**namespace):
     
 class InflowProfile(UserExpression):
     def __init__(self, Re, mu_f, rho_f, D, **kwargs):
+        super().__init__(kwargs)
         self.Re = Re
         self.mu_f = mu_f
         self.rho_f = rho_f
         self.D = D
         self.average_inlet_velocity = self.Re*self.mu_f/self.D/self.rho_f
-        super().__init__(**kwargs)
 
     def eval(self, value, x):
-        value[0] = self.average_inlet_velocity*2*(1-((x[1]*x[1])+(x[2]*x[2]))*4/(self.D*self.D))
+        value[0] = self.average_inlet_velocity* 2 * (1-((x[1]*x[1])+(x[2]*x[2])) * 4 / (self.D*self.D))
         value[1] = np.random.normal(0, 0.001)
         value[2] = np.random.normal(0, 0.001)
     
@@ -125,6 +125,7 @@ def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, **namespace):
     bcp = DirichletBC(DVP.sub(2), 0, boundaries, outletId)
 
     # bcs = [bc_u_inlet_x, bc_u_inlet_y, bc_u_inlet_z, bc_u_wall, bcp]
-    bcs = [bc_u_inlet, bc_u_wall, bcp]
-   
-    return dict(bcs=bcs)
+    bcs = [bc_u_wall, bc_u_inlet, bcp]
+    #NOTE: here it seems important to have inflow_prof as global variable, otherwise it will not work 
+    return dict(bcs=bcs, inflow_prof=inflow_prof)
+
