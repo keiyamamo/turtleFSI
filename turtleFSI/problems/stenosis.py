@@ -34,6 +34,14 @@ def set_problem_parameters(default_variables, **namespace):
         extrapolation="no_extrapolation", # no extrapolation since the domain is fixed
 
         checkpoint_step=500,
+        save_step = 1,
+        folder="stenosis_results",
+        recompute=10,
+        recompute_tstep=10,
+        save_deg=1,
+        d_deg = 1,
+        v_deg = 2,
+        p_deg = 1,
 
         atol=1e-6, # Absolute tolerance in the Newton solver
         rtol=1e-6,# Relative tolerance in the Newton solver
@@ -64,21 +72,39 @@ def get_mesh_domain_and_boundaries(**namespace):
 
     return mesh, domains, boundaries
 
+
 class Noise(UserExpression):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def eval(self, value, x):
         value[0] = np.random.normal(0, 0.001)
+    
+    def value_shape(self):
+        return ()
+    
+    
+class InflowProfile(UserExpression):
+    def __init__(self, Re, mu_f, rho_f, D, **kwargs):
+        super().__init__(**kwargs)
+        self.Re = Re
+        self.mu_f = mu_f
+        self.rho_f = rho_f
+        self.D = D
+        self.average_inlet_velocity = self.Re*self.mu_f/self.D/self.rho_f
+
+    def eval(self, value, x):
+        value[0] = self.average_inlet_velocity*2*(1-((x[1]*x[1])+(x[2]*x[2]))*4/(self.D*self.D))
+    
+    def value_shape(self):
+        return ()
+
   
 def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, **namespace):
     """
     Initiate the solution using boundary conditions as well as defining boundary conditions. 
     """
-    average_inlet_velocity = get_ave_inlet_velocity(Re, mu_f, rho_f, D)
-    default_variables.update(ave_inlet_velocity=average_inlet_velocity)
-    inflow_prof = get_inflow_prof(average_inlet_velocity, D)
-    
+    inflow_prof = InflowProfile(Re, mu_f, rho_f, D, degree=2)
     noise = Noise()
 
     wallId = 1
@@ -101,13 +127,3 @@ def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, **namespace):
     bcs = [bc_u_inlet_x, bc_u_inlet_y, bc_u_inlet_z, bc_u_wall, bcp]
    
     return dict(bcs=bcs)
-
-
-def get_ave_inlet_velocity(Re, mu_f, rho_f, D,**NS_namespace):
-    average_inlet_velocity = Re*mu_f/D/rho_f
-    return average_inlet_velocity
-
-
-def get_inflow_prof(average_inlet_velocity, D, **NS_namespace):
-    u_inflow = Expression('A*2*(1-((x[1]*x[1])+(x[2]*x[2]))*4/(D*D))', degree=2, A=average_inlet_velocity, D=D)
-    return u_inflow
