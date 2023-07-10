@@ -1,9 +1,7 @@
 import numpy as np
-import random
-import os
 
 from turtleFSI.problems import *
-from dolfin import DirichletBC, cpp, MeshValueCollection, Expression, UserExpression, MeshFunction, MPI, File
+from dolfin import DirichletBC, cpp, MeshValueCollection, UserExpression, MeshFunction, MPI
 
 
 # Set compiler arguments
@@ -55,7 +53,7 @@ def get_mesh_domain_and_boundaries(**namespace):
     # Import mesh file
     mesh = Mesh()
     mvc = MeshValueCollection("size_t", mesh, mesh.topology().dim())
-    with XDMFFile(MPI.comm_world, "mesh/Stenosis_400K/mesh.xdmf") as infile:
+    with XDMFFile(MPI.comm_world, "mesh/Stenosis_200K/mesh.xdmf") as infile:
         infile.read(mesh)
         infile.read(mvc, "subdomains")
 
@@ -64,7 +62,7 @@ def get_mesh_domain_and_boundaries(**namespace):
 
     # Import mesh boundaries
     mvc = MeshValueCollection("size_t", mesh, mesh.topology().dim()-1)
-    with XDMFFile(MPI.comm_world, "mesh/Stenosis_400K/mf.xdmf") as infile:
+    with XDMFFile(MPI.comm_world, "mesh/Stenosis_200K/mf.xdmf") as infile:
         infile.read(mvc, "boundaries")
 
     boundaries = cpp.mesh.MeshFunctionSizet(mesh, mvc)
@@ -73,39 +71,41 @@ def get_mesh_domain_and_boundaries(**namespace):
     return mesh, domains, boundaries
 
 
-class Noise(UserExpression):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+# class Noise(UserExpression):
+#     def __init__(self, **kwargs):
+#         super().__init__(**kwargs)
 
-    def eval(self, value, x):
-        value[0] = np.random.normal(0, 0.001)
+#     def eval(self, value):
+#         value[0] = np.random.normal(0, 0.001)
     
-    def value_shape(self):
-        return ()
+#     def value_shape(self):
+#         return ()
     
     
 class InflowProfile(UserExpression):
     def __init__(self, Re, mu_f, rho_f, D, **kwargs):
-        super().__init__(**kwargs)
         self.Re = Re
         self.mu_f = mu_f
         self.rho_f = rho_f
         self.D = D
         self.average_inlet_velocity = self.Re*self.mu_f/self.D/self.rho_f
+        super().__init__(**kwargs)
 
     def eval(self, value, x):
         value[0] = self.average_inlet_velocity*2*(1-((x[1]*x[1])+(x[2]*x[2]))*4/(self.D*self.D))
+        value[1] = np.random.normal(0, 0.001)
+        value[2] = np.random.normal(0, 0.001)
     
     def value_shape(self):
-        return ()
+        return (3,)
 
   
 def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, **namespace):
     """
     Initiate the solution using boundary conditions as well as defining boundary conditions. 
     """
-    inflow_prof = InflowProfile(Re, mu_f, rho_f, D, degree=2)
-    noise = Noise()
+    inflow_prof = InflowProfile(Re=Re, mu_f=mu_f, rho_f=rho_f, D=D, degree=2)
+    # noise = Noise()
 
     wallId = 1
     inletId = 3
@@ -113,9 +113,9 @@ def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, **namespace):
     
     # generate functions of the initial solution from expressions
      # Define boundary conditions for the velocity 
-    bc_u_inlet_x = DirichletBC(DVP.sub(1).sub(0), inflow_prof, boundaries, inletId)
-    bc_u_inlet_y = DirichletBC(DVP.sub(1).sub(1), noise, boundaries, inletId)
-    bc_u_inlet_z = DirichletBC(DVP.sub(1).sub(2), noise, boundaries, inletId)
+    bc_u_inlet = DirichletBC(DVP.sub(1), inflow_prof, boundaries, inletId)
+    # bc_u_inlet_y = DirichletBC(DVP.sub(1).sub(1), noise, boundaries, inletId)
+    # bc_u_inlet_z = DirichletBC(DVP.sub(1).sub(2), noise, boundaries, inletId)
 
     # boundary condition for the wall. No slip condition for the velocity.
     # This should be added at the end of the list of boundary conditions
@@ -124,6 +124,7 @@ def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, **namespace):
     # Zero Dirichlet BC for pressure at the outlet
     bcp = DirichletBC(DVP.sub(2), 0, boundaries, outletId)
 
-    bcs = [bc_u_inlet_x, bc_u_inlet_y, bc_u_inlet_z, bc_u_wall, bcp]
+    # bcs = [bc_u_inlet_x, bc_u_inlet_y, bc_u_inlet_z, bc_u_wall, bcp]
+    bcs = [bc_u_inlet, bc_u_wall, bcp]
    
     return dict(bcs=bcs)
