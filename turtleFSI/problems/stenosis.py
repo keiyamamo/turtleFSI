@@ -44,16 +44,18 @@ def set_problem_parameters(default_variables, **namespace):
         atol=1e-6, # Absolute tolerance in the Newton solver
         rtol=1e-6,# Relative tolerance in the Newton solver
 
+        volume_mesh_path = "mesh/Stenosis_400K/mesh.xdmf",
+        surface_mesh_path = "mesh/Stenosis_400K/mf.xdmf",
         ))
 
     return default_variables
 
 
-def get_mesh_domain_and_boundaries(**namespace):
+def get_mesh_domain_and_boundaries(volume_mesh_path, surface_mesh_path, **namespace):
     # Import mesh file
     mesh = Mesh()
     mvc = MeshValueCollection("size_t", mesh, mesh.topology().dim())
-    with XDMFFile(MPI.comm_world, "mesh/Stenosis_200K/mesh.xdmf") as infile:
+    with XDMFFile(MPI.comm_world, volume_mesh_path) as infile:
         infile.read(mesh)
         infile.read(mvc, "subdomains")
 
@@ -62,25 +64,13 @@ def get_mesh_domain_and_boundaries(**namespace):
 
     # Import mesh boundaries
     mvc = MeshValueCollection("size_t", mesh, mesh.topology().dim()-1)
-    with XDMFFile(MPI.comm_world, "mesh/Stenosis_200K/mf.xdmf") as infile:
+    with XDMFFile(MPI.comm_world, surface_mesh_path) as infile:
         infile.read(mvc, "boundaries")
 
     boundaries = cpp.mesh.MeshFunctionSizet(mesh, mvc)
-    boundaries.array()[boundaries.array()> 1e10] = 0
 
     return mesh, domains, boundaries
 
-
-# class Noise(UserExpression):
-#     def __init__(self, **kwargs):
-#         super().__init__(**kwargs)
-
-#     def eval(self, value):
-#         value[0] = np.random.normal(0, 0.001)
-    
-#     def value_shape(self):
-#         return ()
-    
     
 class InflowProfile(UserExpression):
     def __init__(self, Re, mu_f, rho_f, D, **kwargs):
@@ -105,26 +95,19 @@ def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, **namespace):
     Initiate the solution using boundary conditions as well as defining boundary conditions. 
     """
     inflow_prof = InflowProfile(Re=Re, mu_f=mu_f, rho_f=rho_f, D=D, degree=2)
-    # noise = Noise()
+
 
     wallId = 1
     inletId = 3
     outletId = 2
     
-    # generate functions of the initial solution from expressions
-     # Define boundary conditions for the velocity 
+    # Define boundary conditions for the velocity 
     bc_u_inlet = DirichletBC(DVP.sub(1), inflow_prof, boundaries, inletId)
-    # bc_u_inlet_y = DirichletBC(DVP.sub(1).sub(1), noise, boundaries, inletId)
-    # bc_u_inlet_z = DirichletBC(DVP.sub(1).sub(2), noise, boundaries, inletId)
-
-    # boundary condition for the wall. No slip condition for the velocity.
-    # This should be added at the end of the list of boundary conditions
-    # to make sure that this is enforced.
     bc_u_wall = DirichletBC(DVP.sub(1), ((0.0, 0.0, 0.0)), boundaries, wallId)
+
     # Zero Dirichlet BC for pressure at the outlet
     bcp = DirichletBC(DVP.sub(2), 0, boundaries, outletId)
 
-    # bcs = [bc_u_inlet_x, bc_u_inlet_y, bc_u_inlet_z, bc_u_wall, bcp]
     bcs = [bc_u_wall, bc_u_inlet, bcp]
     #NOTE: here it seems important to have inflow_prof as global variable, otherwise it will not work 
     return dict(bcs=bcs, inflow_prof=inflow_prof)
