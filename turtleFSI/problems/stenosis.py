@@ -31,21 +31,24 @@ def set_problem_parameters(default_variables, **namespace):
         solid = "no_solid",               # no solid
         extrapolation="no_extrapolation", # no extrapolation since the domain is fixed
 
-        checkpoint_step=500,
-        save_step = 1,
+        checkpoint_step=100,
+        save_step = 10,
         folder="stenosis_results",
         recompute=10,
-        recompute_tstep=10,
+        recompute_tstep=20,
         save_deg=1,
         d_deg = 1,
         v_deg = 2,
         p_deg = 1,
+        inletId = 2,
+        outletId = 3,
+        wallId = 1,
 
         atol=1e-6, # Absolute tolerance in the Newton solver
         rtol=1e-6,# Relative tolerance in the Newton solver
 
-        volume_mesh_path = "mesh/Stenosis_400K/mesh.xdmf",
-        surface_mesh_path = "mesh/Stenosis_400K/mf.xdmf",
+        volume_mesh_path = "mesh/Stenosis_80K/mesh.xdmf",
+        surface_mesh_path = "mesh/Stenosis_80K/mf.xdmf",
         ))
 
     return default_variables
@@ -68,7 +71,6 @@ def get_mesh_domain_and_boundaries(volume_mesh_path, surface_mesh_path, **namesp
         infile.read(mvc, "boundaries")
 
     boundaries = cpp.mesh.MeshFunctionSizet(mesh, mvc)
-
     return mesh, domains, boundaries
 
     
@@ -83,23 +85,18 @@ class InflowProfile(UserExpression):
 
     def eval(self, value, x):
         value[0] = self.average_inlet_velocity* 2 * (1-((x[1]*x[1])+(x[2]*x[2])) * 4 / (self.D*self.D))
-        value[1] = np.random.normal(0, 0.001)
-        value[2] = np.random.normal(0, 0.001)
+        value[1] = np.random.normal(0, 0.0000001)
+        value[2] = np.random.normal(0, 0.0000001)
     
     def value_shape(self):
         return (3,)
 
   
-def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, **namespace):
+def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, inletId, outletId, wallId, **namespace):
     """
     Initiate the solution using boundary conditions as well as defining boundary conditions. 
     """
     inflow_prof = InflowProfile(Re=Re, mu_f=mu_f, rho_f=rho_f, D=D, degree=2)
-
-
-    wallId = 1
-    inletId = 3
-    outletId = 2
     
     # Define boundary conditions for the velocity 
     bc_u_inlet = DirichletBC(DVP.sub(1), inflow_prof, boundaries, inletId)
@@ -107,7 +104,6 @@ def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, **namespace):
 
     # Zero Dirichlet BC for pressure at the outlet
     bcp = DirichletBC(DVP.sub(2), 0, boundaries, outletId)
-
     bcs = [bc_u_wall, bc_u_inlet, bcp]
     #NOTE: here it seems important to have inflow_prof as global variable, otherwise it will not work 
     return dict(bcs=bcs, inflow_prof=inflow_prof)
