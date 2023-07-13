@@ -18,8 +18,8 @@ def set_problem_parameters(default_variables, **namespace):
 
     # define and set problem variables values
     default_variables.update(dict(
-        T=0.5,                               # Simulation end time
-        dt=0.0005,                           # Time step size
+        T=0.5,                                 # Simulation end time
+        dt=0.0005,                            # Time step size
         theta=0.501,                         # Theta scheme (implicit/explicit time stepping): 0.5 + dt
         atol=1e-7,                           # Absolute tolerance in the Newton solver
         rtol=1e-7,                           # Relative tolerance in the Newton solver
@@ -32,9 +32,9 @@ def set_problem_parameters(default_variables, **namespace):
         mu_s=mu_s_val,                       # Solid shear modulus or 2nd Lame Coef. [Pa]
         nu_s=nu_s_val,                       # Solid Poisson ratio [-]
         lambda_s=lambda_s_val,               # Solid 1rst Lamé coef. [Pa]
-        k_s = 51E5,                          # elastic response necesary for RobinBC
-        c_s = 0.1,                             # viscoelastic response necesary for RobinBC
-        extrapolation="no_extrapolation",             # laplace, elastic, biharmonic, no-extrapolation
+        k_s = 1e8,                           # elastic response necesary for RobinBC
+        c_s = 80,                            # viscoelastic response necesary for RobinBC
+        extrapolation="no_extrapolation",    # laplace, elastic, biharmonic, no-extrapolation
         recompute=5,                         # Number of iterations before recompute Jacobian. 
         recompute_tstep=10,                  # Number of time steps before recompute Jacobian. 
         save_step=1,                         # Save frequency of files for visualisation
@@ -114,7 +114,7 @@ def create_bcs(DVP, boundaries, dx_s, psi, F_solid_linear, **namespace):
 
     bcs=[]
 
-    impulse_force = BodyForceImpulse(force_val=1e5, t_start=0.005,t_end=0.008,t=0.0)
+    impulse_force = BodyForceImpulse(force_val=1e3, t_start=0.005,t_end=0.008,t=0.0)
     F_solid_linear -= inner(impulse_force, psi)*dx_s[0]
 
     return dict(bcs=bcs, F_solid_linear=F_solid_linear, impulse_force=impulse_force)

@@ -32,12 +32,12 @@ def set_problem_parameters(default_variables, **namespace):
         mu_s=mu_s_val,                       # Solid shear modulus or 2nd Lame Coef. [Pa]
         nu_s=nu_s_val,                       # Solid Poisson ratio [-]
         lambda_s=lambda_s_val,               # Solid 1rst Lamé coef. [Pa]
-        k_s = 51E5,                          # elastic response necesary for RobinBC
+        k_s = 1e8,                           # elastic response necesary for RobinBC
         c_s = 0,                             # viscoelastic response necesary for RobinBC
         extrapolation="laplace",             # laplace, elastic, biharmonic, no-extrapolation
         extrapolation_sub_type="constant",   # constant, small_constant, volume, volume_change, bc1, bc2
         recompute=5,                         # Number of iterations before recompute Jacobian. 
-        recompute_tstep=10,                  # Number of time steps before recompute Jacobian. 
+        recompute_tstep=100,                  # Number of time steps before recompute Jacobian. 
         save_step=1,                         # Save frequency of files for visualisation
         folder="CircleinFluid",              # Folder where the results will be stored
         checkpoint_step=50,                  # checkpoint frequency
