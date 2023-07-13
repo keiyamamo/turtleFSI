@@ -28,6 +28,12 @@ turtleFSI/utils/probe/*.so
 *.vtu
 *.xml.gz
 
+# others
+*.txt
+*.pkl
+*.config
+*.pvd
+
 # Distribution / packaging
 lib/
 build/
