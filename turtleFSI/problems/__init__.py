@@ -253,13 +253,14 @@ def save_files_visualization(visualization_folder, dvp_, t, save_deg, v_deg, p_d
             FSdv_viz = FunctionSpace(mesh_viz, dve_viz)   # Visualisation FunctionSpace for d and v
 
             # Create lower-order function for visualization on refined mesh
-            d_viz = Function(FSdv_viz)
+            # d_viz = Function(FSdv_viz)
             v_viz = Function(FSdv_viz)
     
             # Create a transfer matrix between higher degree and lower degree (visualization) function spaces
             dv_trans = PETScDMCollection.create_transfer_matrix(FSdv,FSdv_viz)
 
-            return_dict = dict(v_file=v_file, d_file=d_file, p_file=p_file, d_viz=d_viz,v_viz=v_viz, dv_trans=dv_trans, mesh_viz=mesh_viz)
+            # return_dict = dict(v_file=v_file, d_file=d_file, p_file=p_file, d_viz=d_viz,v_viz=v_viz, dv_trans=dv_trans, mesh_viz=mesh_viz)
+            return_dict = dict(v_file=v_file, d_file=d_file, p_file=p_file, v_viz=v_viz, dv_trans=dv_trans, mesh_viz=mesh_viz)
             # Pressure is usually saved with lower order than velocity and displacement, so we need separate treatment
             if p_deg >= save_deg:
                 pe = FiniteElement('CG', mesh.ufl_cell(), p_deg)
@@ -268,7 +269,8 @@ def save_files_visualization(visualization_folder, dvp_, t, save_deg, v_deg, p_d
                 FSp_viz = FunctionSpace(mesh_viz, pe_viz)     # Visualisation FunctionSpace for p
                 p_viz = Function(FSp_viz)
                 p_trans = PETScDMCollection.create_transfer_matrix(FSp,FSp_viz)
-                return_dict = dict(v_file=v_file, d_file=d_file, p_file=p_file, d_viz=d_viz, v_viz=v_viz, p_viz=p_viz, dv_trans=dv_trans, p_trans=p_trans, mesh_viz=mesh_viz)
+                # return_dict = dict(v_file=v_file, d_file=d_file, p_file=p_file, d_viz=d_viz, v_viz=v_viz, p_viz=p_viz, dv_trans=dv_trans, p_trans=p_trans, mesh_viz=mesh_viz)
+                return_dict = dict(v_file=v_file, d_file=d_file, p_file=p_file, v_viz=v_viz, p_viz=p_viz, dv_trans=dv_trans, p_trans=p_trans, mesh_viz=mesh_viz)
                 
         else:
             return_dict = dict(v_file=v_file, d_file=d_file, p_file=p_file)
@@ -287,19 +289,22 @@ def save_files_visualization(visualization_folder, dvp_, t, save_deg, v_deg, p_d
     if save_deg > 1 and p_deg >= save_deg:
 
         # Interpolate by using the transfer matrix between higher degree and lower degree (visualization) function spaces
-        namespace["d_viz"].vector()[:] = namespace["dv_trans"]*d.vector()
+        # namespace["d_viz"].vector()[:] = namespace["dv_trans"]*d.vector()
         namespace["v_viz"].vector()[:] = namespace["dv_trans"]*v.vector()
         namespace["p_viz"].vector()[:] = namespace["p_trans"]*p.vector()
 
-        write_solution(namespace["d_viz"], namespace["v_viz"], namespace["p_viz"], 
+        # write_solution(namespace["d_viz"], namespace["v_viz"], namespace["p_viz"], 
+        #     namespace["d_file"], namespace["v_file"], namespace["p_file"], t) 
+        write_solution(d, namespace["v_viz"], namespace["p_viz"], 
             namespace["d_file"], namespace["v_file"], namespace["p_file"], t) 
 
     # The following interploate displacement and velocity but not pressure. For example, P2P2P1 (dvp) with save_deg >=2.
     elif save_deg > 1 and p_deg < save_deg and v_deg >= save_deg:
-        namespace["d_viz"].vector()[:] = namespace["dv_trans"]*d.vector()
+        # namespace["d_viz"].vector()[:] = namespace["dv_trans"]*d.vector()
         namespace["v_viz"].vector()[:] = namespace["dv_trans"]*v.vector()
 
-        write_solution(namespace["d_viz"], namespace["v_viz"], p, namespace["d_file"], namespace["v_file"], namespace["p_file"], t) 
+        # write_solution(namespace["d_viz"], namespace["v_viz"], p, namespace["d_file"], namespace["v_file"], namespace["p_file"], t)
+        write_solution(d, namespace["v_viz"], p, namespace["d_file"], namespace["v_file"], namespace["p_file"], t)
         
 
     else: # To save only the corner nodes
