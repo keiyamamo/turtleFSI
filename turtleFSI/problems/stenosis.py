@@ -21,11 +21,12 @@ def set_problem_parameters(default_variables, **namespace):
         theta = 0.5001, # Shifted-Crank-Nicolson
 
         # Fluid parameters
-        Re=600,
+        Re=700,
         D=0.00635, # m
         # nu=0.0031078341013824886, # mm^2/ms #3.1078341E-6 m^2/s, #0.003372 Pa-s/1085 kg/m^3 this is nu_inf (m^2/s)
         mu_f =0.003372, # fluid dynamic viscosity (Pa-s)
         rho_f=1085,   # kg/m^3, density of fluid
+        seed = 0,
 
         # Solid parameters
         solid = "no_solid",               # no solid
@@ -75,28 +76,30 @@ def get_mesh_domain_and_boundaries(volume_mesh_path, surface_mesh_path, **namesp
 
     
 class InflowProfile(UserExpression):
-    def __init__(self, Re, mu_f, rho_f, D, **kwargs):
+    def __init__(self, Re, mu_f, rho_f, D, seed, **kwargs):
         super().__init__(kwargs)
         self.Re = Re
         self.mu_f = mu_f
         self.rho_f = rho_f
         self.D = D
         self.average_inlet_velocity = self.Re*self.mu_f/self.D/self.rho_f
+        self.seed = seed
+        
 
     def eval(self, value, x):
         value[0] = self.average_inlet_velocity* 2 * (1-((x[1]*x[1])+(x[2]*x[2])) * 4 / (self.D*self.D))
-        value[1] = np.random.normal(0, 0.0000001)
-        value[2] = np.random.normal(0, 0.0000001)
+        value[1] = np.random.normal(0, self.seed)
+        value[2] = np.random.normal(0, self.seed)
     
     def value_shape(self):
         return (3,)
 
   
-def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, inletId, outletId, wallId, **namespace):
+def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, inletId, outletId, wallId, seed, **namespace):
     """
     Initiate the solution using boundary conditions as well as defining boundary conditions. 
     """
-    inflow_prof = InflowProfile(Re=Re, mu_f=mu_f, rho_f=rho_f, D=D, degree=2)
+    inflow_prof = InflowProfile(Re=Re, mu_f=mu_f, rho_f=rho_f, D=D, seed=seed, degree=2)
     
     # Define boundary conditions for the velocity 
     bc_u_inlet = DirichletBC(DVP.sub(1), inflow_prof, boundaries, inletId)
