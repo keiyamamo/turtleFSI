@@ -1,7 +1,9 @@
 import numpy as np
+import os
 
 from turtleFSI.problems import *
-from dolfin import DirichletBC, cpp, MeshValueCollection, UserExpression, MeshFunction, MPI
+from dolfin import DirichletBC, cpp, MeshValueCollection, UserExpression, MeshFunction, MPI, \
+                    VectorFunctionSpace
 
 
 # Set compiler arguments
@@ -16,12 +18,13 @@ def set_problem_parameters(default_variables, **namespace):
     
     default_variables.update(dict(
         # Temporal parameters
-        T=15, # s
+        T=3e-4, # s
         dt=1e-4, # s
         theta = 0.5001, # Shifted-Crank-Nicolson
+        save_solution_after_tstep = 1,
 
         # Fluid parameters
-        Re=700,
+        Re=600,
         D=0.00635, # m
         # nu=0.0031078341013824886, # mm^2/ms #3.1078341E-6 m^2/s, #0.003372 Pa-s/1085 kg/m^3 this is nu_inf (m^2/s)
         mu_f =0.003372, # fluid dynamic viscosity (Pa-s)
@@ -93,6 +96,13 @@ class InflowProfile(UserExpression):
     
     def value_shape(self):
         return (3,)
+    
+
+def initiate(mesh, v_deg, **namespace):
+    Vv = VectorFunctionSpace(mesh, "CG", v_deg)
+    u_mean = Function(Vv)
+
+    return dict(u_mean=u_mean)
 
   
 def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, inletId, outletId, wallId, seed, **namespace):
@@ -111,3 +121,25 @@ def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, inletId, outletId, wallId, s
     #NOTE: here it seems important to have inflow_prof as global variable, otherwise it will not work 
     return dict(bcs=bcs, inflow_prof=inflow_prof)
 
+
+def post_solve(dvp_, u_mean, counter, save_solution_after_tstep, **namespace):
+
+    if counter >= save_solution_after_tstep:
+        # Here, we accumulate the velocity filed in u_mean
+        v = dvp_["n"].sub(1, deepcopy=True)
+        u_mean.vector().axpy(1, v.vector())
+
+        return dict(u_mean=u_mean)    
+    else:
+        return None
+
+
+def finished(u_mean, counter, results_folder, save_solution_after_tstep, **namespace):
+    # Divide the accumulated velocity field by the number of time steps
+    u_mean.vector()[:] = u_mean.vector()[:] / (counter - save_solution_after_tstep + 1)
+
+    # Save u_mean as a XDMF file using the checkpoint
+    u_mean.rename("u_mean", "u_mean")
+    u_mean_file_path = os.path.join(results_folder, "u_mean.xdmf")
+    with XDMFFile(MPI.comm_world, u_mean_file_path) as f:
+        f.write_checkpoint(u_mean, 'u_mean')
