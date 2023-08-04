@@ -122,9 +122,9 @@ def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, inletId, outletId, wallId, s
     return dict(bcs=bcs, inflow_prof=inflow_prof)
 
 
-def post_solve(dvp_, u_mean, counter, save_solution_after_tstep, **namespace):
+def post_solve(dvp_, u_mean, t, save_solution_after_tstep, dt, **namespace):
 
-    if counter >= save_solution_after_tstep:
+    if t >= save_solution_after_tstep * dt :
         # Here, we accumulate the velocity filed in u_mean
         v = dvp_["n"].sub(1, deepcopy=True)
         u_mean.vector().axpy(1, v.vector())
@@ -134,9 +134,9 @@ def post_solve(dvp_, u_mean, counter, save_solution_after_tstep, **namespace):
         return None
 
 
-def finished(u_mean, counter, results_folder, save_solution_after_tstep, **namespace):
+def finished(u_mean, counter, results_folder, save_solution_after_tstep, T, dt, **namespace):
     # Divide the accumulated velocity field by the number of time steps
-    u_mean.vector()[:] = u_mean.vector()[:] / (counter - save_solution_after_tstep + 1)
+    u_mean.vector()[:] = u_mean.vector()[:] / (T/dt - save_solution_after_tstep + 1)
 
     # Save u_mean as a XDMF file using the checkpoint
     u_mean.rename("u_mean", "u_mean")
