@@ -3,7 +3,7 @@ import os
 
 from turtleFSI.problems import *
 from dolfin import DirichletBC, cpp, MeshValueCollection, UserExpression, MeshFunction, MPI, \
-                    VectorFunctionSpace
+                    VectorFunctionSpace, HDF5File
 
 
 # Set compiler arguments
@@ -48,8 +48,8 @@ def set_problem_parameters(default_variables, **namespace):
         outletId = 3,
         wallId = 1,
 
-        atol=1e-6, # Absolute tolerance in the Newton solver
-        rtol=1e-6,# Relative tolerance in the Newton solver
+        atol=1e-2, # Absolute tolerance in the Newton solver
+        rtol=1e-2,# Relative tolerance in the Newton solver
 
         volume_mesh_path = "mesh/Stenosis_80K/mesh.xdmf",
         surface_mesh_path = "mesh/Stenosis_80K/mf.xdmf",
@@ -98,12 +98,25 @@ class InflowProfile(UserExpression):
         return (3,)
     
 
-def initiate(mesh, v_deg, **namespace):
+def initiate(mesh, v_deg, results_folder, **namespace):
     Vv = VectorFunctionSpace(mesh, "CG", v_deg)
     u_mean = Function(Vv)
-
-    return dict(u_mean=u_mean)
-
+    if MPI.rank(MPI.comm_world) == 0:
+        os.makedirs(os.path.join(results_folder, "Solutions"))
+    solution_path = os.path.join(results_folder, "Solutions")
+    solution_mesh_path = os.path.join(solution_path, "mesh.h5")
+    solution_velocity_path = os.path.join(solution_path, "u.h5")
+    solution_pressure_path = os.path.join(solution_path, "p.h5")
+    solution_u_mean_path = os.path.join(solution_path, "u_mean.h5")
+    solution_files = {"solution_mesh" : solution_mesh_path, "solution_v" : solution_velocity_path, "solution_p" : solution_pressure_path, "solution_u_mean" : solution_u_mean_path}
+    #  Save mesh as HDF5 file for post processing
+    boundaries = MeshFunction("size_t", mesh, 2, mesh.domains())
+    boundaries.set_values(boundaries.array()+1)
+    with HDF5File(MPI.comm_world, solution_mesh_path, "w") as mesh_file:
+        mesh_file.write(mesh, "mesh")
+        mesh_file.write(boundaries, "boundaries")
+    
+    return dict(u_mean=u_mean, solution_files=solution_files)
   
 def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, inletId, outletId, wallId, seed, **namespace):
     """
@@ -122,11 +135,27 @@ def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, inletId, outletId, wallId, s
     return dict(bcs=bcs, inflow_prof=inflow_prof)
 
 
-def post_solve(dvp_, u_mean, t, save_solution_after_tstep, dt, **namespace):
+def post_solve(dvp_, u_mean, t, save_solution_after_tstep, solution_files, dt, **namespace):
 
     if t >= save_solution_after_tstep * dt :
-        # Here, we accumulate the velocity filed in u_mean
+        file_mode = "w" if t == save_solution_after_tstep * dt else "a"
+
+        # Extract solutions and assign to functions
         v = dvp_["n"].sub(1, deepcopy=True)
+        p = dvp_["n"].sub(2, deepcopy=True)
+        
+        # Save velocity
+        viz_u = HDF5File(MPI.comm_world, solution_files["solution_v"], file_mode=file_mode)
+        viz_u.write(v, "/velocity", t /dt)
+        viz_u.close()
+
+        # Save pressure
+        viz_p = HDF5File(MPI.comm_world, solution_files["solution_p"], file_mode=file_mode)
+        viz_p.write(p, "/pressure", t /dt)
+        viz_p.close()
+
+        # Start averaging velocity w
+        # Here, we accumulate the velocity filed in u_mean
         u_mean.vector().axpy(1, v.vector())
 
         return dict(u_mean=u_mean)    
@@ -134,12 +163,12 @@ def post_solve(dvp_, u_mean, t, save_solution_after_tstep, dt, **namespace):
         return None
 
 
-def finished(u_mean, counter, results_folder, save_solution_after_tstep, T, dt, **namespace):
+def finished(u_mean, solution_files, save_solution_after_tstep, T, dt, **namespace):
     # Divide the accumulated velocity field by the number of time steps
     u_mean.vector()[:] = u_mean.vector()[:] / (T/dt - save_solution_after_tstep + 1)
 
     # Save u_mean as a XDMF file using the checkpoint
     u_mean.rename("u_mean", "u_mean")
-    u_mean_file_path = os.path.join(results_folder, "u_mean.xdmf")
-    with XDMFFile(MPI.comm_world, u_mean_file_path) as f:
-        f.write_checkpoint(u_mean, 'u_mean')
+    # Save u_mean
+    with HDF5File(MPI.comm_world,  solution_files["solution_u_mean"], "w") as u_mean_file:
+        u_mean_file.write(u_mean, "u_mean")
