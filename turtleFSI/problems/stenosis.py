@@ -18,10 +18,10 @@ def set_problem_parameters(default_variables, **namespace):
     
     default_variables.update(dict(
         # Temporal parameters
-        T=3e-4, # s
+        T=5e-4, # s
         dt=1e-4, # s
         theta = 0.5001, # Shifted-Crank-Nicolson
-        save_solution_after_tstep = 1,
+        save_solution_after_tstep = 3,
 
         # Fluid parameters
         Re=600,
@@ -138,7 +138,7 @@ def create_bcs(DVP, boundaries, Re, mu_f, rho_f, D, inletId, outletId, wallId, s
 def post_solve(dvp_, u_mean, t, save_solution_after_tstep, solution_files, dt, **namespace):
 
     if t >= save_solution_after_tstep * dt :
-        file_mode = "w" if t == save_solution_after_tstep * dt else "a"
+        file_mode = "w" if not os.path.exists(solution_files["solution_v"]) else "a"
 
         # Extract solutions and assign to functions
         v = dvp_["n"].sub(1, deepcopy=True)
