@@ -8,11 +8,13 @@ This module implements the monolithic Fluid-Structure Interaction (FSI) solver
 used in the turtleFSI package.
 """
 
-from dolfin import *
 from pathlib import Path
 import pickle
 import time
 from pprint import pprint
+from petsc4py import PETSc
+
+from dolfin import *
 
 from turtleFSI.utils import *
 from turtleFSI.problems import *
@@ -133,7 +135,14 @@ if MPI.rank(MPI.comm_world) == 0:
 
 # Define solver
 # Adding the Matrix() argument is a FEniCS 2018.1.0 hack
-up_sol = LUSolver(Matrix(), linear_solver)
+# up_sol = LUSolver(Matrix(), linear_solver)
+# Initialize ksp solver.
+ksp = PETSc.KSP().create()
+ksp.setType('preonly')
+pc = ksp.getPC()
+pc.setType('lu')
+pc.setFactorSolverType('mumps') # Default value "petsc" causes diverging solve
+
 
 # Get variation formulations
 exec("from turtleFSI.modules.{} import fluid_setup".format(fluid))

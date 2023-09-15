@@ -3,14 +3,15 @@
 # the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 # PURPOSE.
 
-from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions
+from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions, \
+                   as_backend_type
 
 PETScOptions.set("mat_mumps_icntl_4", 1) # If negatvie or zero, MUMPS will suppress diagnositc printining, statistics, and warning messages. 
 PETScOptions.set("mat_mumps_icntl_14", 400) # allocate more memory to mumps
 
 
 def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
-                 DVP, dvp_, up_sol, compiler_parameters, **namespace):
+                 DVP, dvp_, compiler_parameters, **namespace):
     """
     Pre-assemble the system of equations for the Jacobian matrix for the Newton solver
     """
@@ -27,11 +28,11 @@ def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonl
     A = Matrix(A_pre)
     b = None
 
-    return dict(F=F, J_nonlinear=J_nonlinear, A_pre=A_pre, A=A, b=b, up_sol=up_sol)
+    return dict(F=F, J_nonlinear=J_nonlinear, A_pre=A_pre, A=A, b=b)
 
 
 def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_tstep, compiler_parameters,
-                 dvp_, up_sol, dvp_res, rtol, atol, max_it, counter, first_step_num, verbose, **namespace):
+                 dvp_, ksp, pc, dvp_res, rtol, atol, max_it, counter, first_step_num, verbose, **namespace):
     """
     Solve the non-linear system of equations with Newton scheme. The standard is to compute the Jacobian
     every time step, however this is computationally costly. We have therefore added two parameters for
@@ -47,7 +48,8 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
     # Capture if residual increases from last iteration
     last_rel_res = residual
     last_residual = rel_res
-    up_sol.set_operator(A)
+    # up_sol.set_operator(A)
+    ksp.setOperators(as_backend_type(A).mat())
     while rel_res > rtol and residual > atol and iter < max_it:
         # Check if recompute Jacobian from 'recompute_tstep' (time step)
         recompute_for_timestep = iter == 0 and (counter % recompute_tstep == 0)
@@ -89,7 +91,9 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         # Apply boundary conditions before solve
         [bc.apply(b, dvp_["n"].vector()) for bc in bcs]
         # Solve the linear system A * x = b where A is the Jacobian matrix, x is the Newton increment and b is the -residual
-        up_sol.solve(dvp_res.vector(), b)
+        # up_sol.solve(dvp_res.vector(), b)
+        pc.setUp()
+        ksp.solve(as_backend_type(b).vec(), as_backend_type(dvp_res.vector().vec()))
         # Update solution using the Newton increment
         dvp_["n"].vector().axpy(lmbda, dvp_res.vector())
         # After adding the residual to the solution, we need to re-apply the boundary conditions
@@ -111,4 +115,4 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
                   % (iter, residual, atol, rel_res, rtol))
         iter += 1
 
-    return dict(up_sol=up_sol, A=A, b=b)
+    return dict(ksp=ksp, pc=pc, A=A, b=b)
