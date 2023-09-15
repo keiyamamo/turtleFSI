@@ -133,15 +133,12 @@ if MPI.rank(MPI.comm_world) == 0:
     for fluid_region in fluid_properties:
         print(fluid_region)
 
-# Define solver
-# Adding the Matrix() argument is a FEniCS 2018.1.0 hack
-# up_sol = LUSolver(Matrix(), linear_solver)
 # Initialize ksp solver.
-ksp = PETSc.KSP().create()
+ksp = PETSc.KSP().create(MPI.comm_world)
 ksp.setType('preonly')
 pc = ksp.getPC()
 pc.setType('lu')
-pc.setFactorSolverType('mumps') # Default value "petsc" causes diverging solve
+pc.setFactorSolverType(linear_solver) # Default value "petsc" causes diverging solve
 
 
 # Get variation formulations
