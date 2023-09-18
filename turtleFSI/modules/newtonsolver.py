@@ -3,14 +3,12 @@
 # the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 # PURPOSE.
 
+import numpy as np
 from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions, \
                    as_backend_type
 
-PETScOptions.set("mat_mumps_icntl_4", 1) # If negatvie or zero, MUMPS will suppress diagnositc printining, statistics, and warning messages. 
-PETScOptions.set("mat_mumps_icntl_14", 400) # allocate more memory to mumps
 
-
-def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
+def solver_setup(F_fluid_linear, ksp, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
                  DVP, dvp_, compiler_parameters, **namespace):
     """
     Pre-assemble the system of equations for the Jacobian matrix for the Newton solver
@@ -28,7 +26,7 @@ def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonl
     A = Matrix(A_pre)
     b = None
 
-    return dict(F=F, J_nonlinear=J_nonlinear, A_pre=A_pre, A=A, b=b)
+    return dict(F=F, J_nonlinear=J_nonlinear, A_pre=A_pre, A=A, b=b, ksp=ksp)
 
 
 def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_tstep, compiler_parameters,
@@ -107,8 +105,8 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         # Check residual
         residual = b.norm('l2')
         rel_res = norm(dvp_res, 'l2')
-        if rel_res > 1E20 or residual > 1E20:
-            raise RuntimeError("Error: The simulation has diverged during the Newton solve.")
+        if rel_res > 1E20 or residual > 1E20 or np.isnan(rel_res) or np.isnan(residual):
+            raise RuntimeError("Error: The simulation has diverged during the Newton solve with residual = %.3e and rel_res = %.3e" % (residual, rel_res))
 
         if MPI.rank(MPI.comm_world) == 0 and verbose:
             print("Newton iteration %d: r (atol) = %.3e (tol = %.3e), r (rel) = %.3e (tol = %.3e) "
