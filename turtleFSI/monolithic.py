@@ -143,8 +143,9 @@ pc = ksp.getPC()
 pc.setType('lu')
 pc.setFactorSolverType(linear_solver) # Default value "petsc" causes diverging solve
 ksp_options = PETSc.Options()
-# ksp_options.setValue("mat_mumps_icntl_4", 3) # allocate more memory to mumps
+ksp_options.setValue("mat_mumps_icntl_4", 3) # allocate more memory to mumps
 ksp_options.setValue("mat_mumps_icntl_14", 400) # allocate more memory to mumps
+ksp_options.setValue("mat_mumps_icntl_35", 1) # allocate more memory to mumps
 # ksp_options.setValue("ksp_view", '')
 # ksp_options.setValue("help", '')
 ksp.setFromOptions()
