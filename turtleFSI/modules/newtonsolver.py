@@ -4,7 +4,7 @@
 # PURPOSE.
 
 import numpy as np
-from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions, \
+from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, \
                    as_backend_type
 
 

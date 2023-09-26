@@ -321,6 +321,12 @@ def write_solution(d, v, p, d_file, v_file, p_file, t):
     v_file.write(v, t)
     p_file.write(p, t)
 
+    # using checklpointing increases the file size a lot (Kei 2023-07-02)
+    # d_file.write_checkpoint(d, 'displacement', t, XDMFFile.Encoding.HDF5, True)
+    # v_file.write_checkpoint(v, 'velocity', t, XDMFFile.Encoding.HDF5, True)
+    # p_file.write_checkpoint(p, 'pressure', t, XDMFFile.Encoding.HDF5, True)
+
+
 
 def check_if_kill(folder, killtime, total_timer):
     """Check if user has put a file named killturtle in folder or if given killtime has been reached."""

@@ -194,9 +194,50 @@ def create_bcs(dvp_, DVP, mesh, boundaries, domains, mu_f, fsi_id, outlet_id1, i
 
     return dict(bcs=bcs, u_inflow_exp=u_inflow_exp, p_out_bc_val=p_out_bc_val, F_solid_linear=F_solid_linear)
 
+def initiate(DVP, visualization_folder, **namespace):
+    # create a function for storing acceleration of the solid
+    a = Function(DVP.sub(0).collapse())
+    v_n = Function(DVP.sub(1).collapse())
+    v_nm1 = Function(DVP.sub(1).collapse())
+    a_file = XDMFFile(MPI.comm_world, str(visualization_folder.joinpath("acceleration.xdmf")))
+    a_file.parameters["flush_output"] = True
+    a_file.parameters["rewrite_function_mesh"] = False
+    return dict(a=a, a_file=a_file, v_n=v_n, v_nm1=v_nm1)
+    
 
 def pre_solve(t, u_inflow_exp, p_out_bc_val, **namespace):
     # Update the time variable used for the inlet boundary condition
     u_inflow_exp.update(t)
     p_out_bc_val.t = t
     return dict(u_inflow_exp=u_inflow_exp, p_out_bc_val=p_out_bc_val)
+
+def post_solve(a, dt, dvp_, t, a_file, v_n, v_nm1, **namespace):
+    # Compute acceleration of the solid
+    """
+    There are two ways to compute the acceleration of the solid:
+    1. Compute the acceleration from the displacement
+    2. Compute the acceleration from the velocity
+    """
+    d_n = dvp_["n"].sub(0, deepcopy=True)
+    d_nm1 = dvp_["n-1"].sub(0, deepcopy=True)
+    d_nm2 = dvp_["n-2"].sub(0, deepcopy=True)
+
+    # Compute the velocity from the displacement
+    v_n.vector()[:] = (d_n.vector()[:] - d_nm1.vector()[:])/dt
+    v_nm1.vector()[:] = (d_nm1.vector()[:] - d_nm2.vector()[:])/dt
+
+    # We can use the velocity directly to compute the acceleration
+    # v_n = dvp_["n"].sub(1, deepcopy=True)
+    # v_nm1 = dvp_["n-1"].sub(1, deepcopy=True)
+
+    a.vector()[:] = (v_n.vector()[:] - v_nm1.vector()[:])/dt
+
+    # write acceleration to file
+    a_file.rename("Acceleration", "a")
+    a_file.write(a, t)
+    # initialize the acceleration for the next time step
+    a.vector().zero()
+    v_n.vector().zero()
+    v_nm1.vector().zero()
+
+    

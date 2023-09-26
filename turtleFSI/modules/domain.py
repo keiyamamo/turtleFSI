@@ -108,7 +108,7 @@ def assign_domain_properties(dx: ufl.measure.Measure, dx_f_id: Union[int, list],
         # In case there are multiple solid boundaries, we assume that ds_s_id is a list and create ds_s for each solid boundary
         if isinstance(ds_s_id, list):
             for i, solid_boundaries in enumerate(ds_s_id):
-                ds_s[i] = ds(solid_boundaries, subdomain_data=boundaries) 
+                ds_s[i] = ds(solid_boundaries, subdomain_data=boundaries)
             ds_s_ext_id_list=ds_s_id
         else:
             ds_s[0] = ds(ds_s_id, subdomain_data=boundaries)
