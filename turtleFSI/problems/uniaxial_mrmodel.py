@@ -36,7 +36,7 @@ def set_problem_parameters(default_variables, **namespace):
 
         # Problem specific
         dx_s_id=1,     # Id of the solid domain
-        folder="uniaxial_mrdoel",          # Folder to store the results
+        folder="uniaxial_mrmodel_results",          # Folder to store the results
         fluid="no_fluid",                 # Do not solve for the fluid
         extrapolation="no_extrapolation",  # No displacement to extrapolate
         speed = 0.000002 # 20 micrometer per second
