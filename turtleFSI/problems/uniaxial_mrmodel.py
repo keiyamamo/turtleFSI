@@ -9,9 +9,10 @@ This file is a problem file for the uniaxial tension test of a Mooney-Rivlin mat
 
 from pathlib import Path
 
-from dolfin import HDF5File, Mesh, MeshFunction, AutoSubDomain, DirichletBC, UserExpression, near
+from dolfin import HDF5File, Mesh, MeshFunction, AutoSubDomain, DirichletBC, near \
+    , interpolate, Expression, VectorFunctionSpace, assemble, inner, Measure
 
-import turtleFSI.problems.Test_Material.stress_strain as StrStr
+from turtleFSI.modules.common import Piola1, E
 from turtleFSI.problems import *
 
 parameters["form_compiler"]["quadrature_degree"] = 6 # Not investigated thorougly. See MSc theses of Gjertsen. 
@@ -29,7 +30,7 @@ def set_problem_parameters(default_variables, **namespace):
         dt=1,       # Time step [s]
         checkpoint_step=1000, # Checkpoint frequency
         theta=0.5,     # Temporal scheme
-        save_step=1,
+        save_step=100,
 
         solid_properties={"dx_s_id":1,"material_model":"MooneyRivlin","rho_s":1.0E3,"mu_s":mu_s_val,"lambda_s":lambda_s_val,"C01":0.02e6,"C10":0.0,"C11":1.8e6},
         gravity=None,   # Gravitational force [m/s**2]
@@ -39,7 +40,9 @@ def set_problem_parameters(default_variables, **namespace):
         folder="uniaxial_mrmodel_results",          # Folder to store the results
         fluid="no_fluid",                 # Do not solve for the fluid
         extrapolation="no_extrapolation",  # No displacement to extrapolate
-        speed = 0.000002 # 20 micrometer per second
+        speed = 0.000002, # 20 micrometer per second
+        stress_list = [], # List to store the stress
+        strain_list = []
     ))
 
     return default_variables
@@ -104,10 +107,35 @@ def create_bcs(DVP, speed, boundaries, **namespace):
     return dict(bcs=bcs)
 
 
-def post_solve(t, dvp_, verbose,counter,save_step, visualization_folder,solid_properties, mesh, dx_s,  **namespace):
+def post_solve(dvp_, solid_properties, mesh, stress_list, strain_list, dx_s, **namespace):
 
-    if counter % save_step == 0:
+    V_f = VectorFunctionSpace(mesh, "CG", 1)
+    x_vector = interpolate(Expression(("1.0", "0.0", "0.0"), degree=1), V_f)
+    pk1_stress = Piola1(dvp_["n"].sub(0), solid_properties[0])
+    volume_averaged_pk1_stress = assemble(inner(x_vector, pk1_stress * x_vector) * dx_s[0]) / assemble(inner(x_vector, x_vector) * dx_s[0])
+    stress_list.append(volume_averaged_pk1_stress)
+    print("Volume averaged stress: ", volume_averaged_pk1_stress)
 
-        return_dict=StrStr.calculate_stress_strain(t, dvp_, verbose, visualization_folder, solid_properties[0], mesh, dx_s[0], **namespace)
+    # Compute Green-Lagrange strain
+    green_lagrange_strain = E(dvp_["n"].sub(0))
+    volume_averaged_green_lagrange_strain = assemble(inner(x_vector, green_lagrange_strain * x_vector) * dx_s[0]) / assemble(inner(x_vector, x_vector) * dx_s[0])
+    print("Volume averaged strain: ", volume_averaged_green_lagrange_strain)
+    strain_list.append(volume_averaged_green_lagrange_strain)
+    return dict(stress_list=stress_list, strain_list=strain_list)
 
-        return return_dict
+def finished(stress_list, strain_list, **namespace):
+    # Add one to strain list to make it stretch
+    strech_list = [x+1 for x in strain_list]
+    # convert stress from Pa to MPa
+    stress_list = [x/1e6 for x in stress_list]
+    # plot the stress-strain curve
+    import matplotlib.pyplot as plt
+    plt.plot(strech_list, stress_list)
+    plt.xlabel("Stretch")
+    plt.ylabel("Stress [MPa]")
+    plt.savefig("stress_strain_curve.png")
+
+    
+
+
+
