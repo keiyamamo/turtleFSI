@@ -123,7 +123,7 @@ def post_solve(dvp_, solid_properties, mesh, stress_list, strain_list, dx_s, **n
     strain_list.append(volume_averaged_green_lagrange_strain)
     return dict(stress_list=stress_list, strain_list=strain_list)
 
-def finished(stress_list, strain_list, **namespace):
+def finished(stress_list, strain_list, results_folder, **namespace):
     # Add one to strain list to make it stretch
     strech_list = [x+1 for x in strain_list]
     # convert stress from Pa to MPa
@@ -131,9 +131,12 @@ def finished(stress_list, strain_list, **namespace):
     # plot the stress-strain curve
     import matplotlib.pyplot as plt
     plt.plot(strech_list, stress_list)
-    plt.xlabel("Stretch")
-    plt.ylabel("Stress [MPa]")
-    plt.savefig("stress_strain_curve.png")
+    # set x and y range
+    plt.xlim(1, 1.5)
+    plt.ylim(0, 1.6)
+    # make it transparent
+    image_path = results_folder / "stress_strain_curve.png"
+    plt.savefig(str(image_path), transparent=True, bbox_inches='tight')
 
     
 
