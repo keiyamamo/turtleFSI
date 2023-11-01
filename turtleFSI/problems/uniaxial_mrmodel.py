@@ -130,7 +130,7 @@ def finished(stress_list, strain_list, results_folder, **namespace):
     stress_list = [x/1e6 for x in stress_list]
     # plot the stress-strain curve
     import matplotlib.pyplot as plt
-    plt.plot(strech_list, stress_list)
+    plt.plot(strech_list, stress_list, color='red', linewidth=1)
     # set x and y range
     plt.xlim(1, 1.5)
     plt.ylim(0, 1.6)
