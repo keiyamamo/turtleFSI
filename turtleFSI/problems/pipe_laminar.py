@@ -7,7 +7,7 @@ from turtleFSI.problems import *
 def set_problem_parameters(default_variables, **namespace):
     # define and set problem variables values
     default_variables.update(dict(
-        T=10,                               # Simulation end time
+        T=0.9,                               # Simulation end time
         dt=0.1,                            # Time step size
         theta=0.51,                         # Theta scheme (implicit/explicit time stepping): 0.5 + dt
         atol=1e-7,                           # Absolute tolerance in the Newton solver
@@ -20,7 +20,7 @@ def set_problem_parameters(default_variables, **namespace):
         # Solid parameters
         solid = "no_solid",               # no solid
         extrapolation="no_extrapolation", # no extrapolation since the domain is fixed
-        d_deg = 1,
+        d_deg = 2,
         v_deg = 2,
         p_deg = 1,
         inletId = 1,
@@ -35,7 +35,7 @@ def set_problem_parameters(default_variables, **namespace):
         save_step=1,                         # Save frequency of files for visualisation
         folder="pipe_laminar",              # Folder where the results will be stored
         checkpoint_step=50,                  # checkpoint frequency
-        save_deg=1,
+        save_deg=2,
         volume_mesh_path = "/Users/keiyamamoto/Documents/turtleFSI/turtleFSI/mesh/Pipe_laminar/mesh.xdmf",
         surface_mesh_path = "/Users/keiyamamoto/Documents/turtleFSI/turtleFSI/mesh/Pipe_laminar/mf.xdmf",
     ))
