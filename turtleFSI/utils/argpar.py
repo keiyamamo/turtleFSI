@@ -18,7 +18,7 @@ will overwrite the default value defined in the problems/__init__.py file.
 import configargparse
 import string
 import ast
-
+import yaml
 
 class StoreDictKeyPair(configargparse.Action):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
@@ -120,13 +120,13 @@ def restricted_float(x):
 
 def parse():
 
-    parser = configargparse.ArgumentParser(description=(
-        "turtleFSI is an open source Fluid-Structure Interaction (FSI) solver written in Python "
-        + "and built upon the FEniCS finite element library. The purpose of turtleFSI is to "
-        + "provide a user friendly and numerically robust monolithic FSI solver able to handle "
-        + "problems characterized by large deformation. turtleFSI benefites from the state-of-the-art "
-        + "parrallel computing features available from the FEniCS library and can be executed with "
-        + "MPI on large computing resources."))
+    parser = configargparse.ArgParser(
+            description=("turtleFSI is an open source Fluid-Structure Interaction (FSI) solver written in Python "
+                        + "and built upon the FEniCS finite element library. The purpose of turtleFSI is to "
+                        + "provide a user friendly and numerically robust monolithic FSI solver able to handle "
+                        + "problems characterized by large deformation. turtleFSI benefites from the state-of-the-art "
+                        + "parrallel computing features available from the FEniCS library and can be executed with "
+                        + "MPI on large computing resources."))
 
     # Configuration file
     parser.add_argument('-c', '--config', is_config_file=True,
@@ -186,6 +186,12 @@ def parse():
                         help="1st Lame Coef. for the solid")
     parser.add_argument("--gravity", type=float, default=None,
                         help="Gravitational force on the solid")
+    
+    parser.add_argument("--solid_properties", type=yaml.safe_load, default=None, 
+                        help="Solid properties as a dictionary")
+
+    parser.add_argument("--fluid_properties", type=yaml.safe_load, default=None,
+                        help="Fluid properties as a dictionary")
 
     # Domain settings
     parser.add_argument("--dx-f-id", type=int, default=None,
@@ -266,6 +272,15 @@ def parse():
 
     # Parse arguments
     args, unknownargs = parser.parse_known_args()
+    
+    if args.__dict__["solid_properties"]:
+        for k, v in args.__dict__["solid_properties"].items():
+            if k != "material_model":
+                args.__dict__["solid_properties"][k] = float(v)
+    
+    if args.__dict__["fluid_properties"]:
+        for k, v in args.__dict__["fluid_properties"].items():
+            args.__dict__["fluid_properties"][k] = float(v)
 
     # Add dt and T as parameters for time-step and end-time respectively
     d = {'dt': args.__dict__['time_step'],
@@ -278,6 +293,7 @@ def parse():
         args.__dict__.pop("new_arguments")
 
     # Add unknown arguments
+    unknownargs_dict = {}
     for arg in unknownargs:
         d = {}
         k, v = arg.strip("--").split('=')
@@ -287,12 +303,15 @@ def parse():
             d[k] = v
 
         # Treat list items (given as --item1=1 --item2=2...)
-        if k in args.__dict__:
-            if not isinstance(args.__dict__[k], list):
-                args.__dict__.update({k: [args.__dict__[k]]})
-            args.__dict__.update({k: args.__dict__[k] + [d[k]]})
+        if k in unknownargs_dict:
+            if not isinstance(unknownargs_dict[k], list):
+                unknownargs_dict.update({k: [unknownargs_dict[k]]})
+            unknownargs_dict.update({k: unknownargs_dict[k] + [d[k]]})
         else:
-            args.__dict__.update(d)
+            if isinstance(d[k], list):
+                d[k] = [d[k]]  # nested list
+            unknownargs_dict.update(d)
+    args.__dict__.update(unknownargs_dict)
 
     # Update the default values and then set the entire dictionary to be the inpute from
     # argparse

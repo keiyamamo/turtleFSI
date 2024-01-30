@@ -10,8 +10,9 @@ used in the turtleFSI package.
 
 from dolfin import *
 from pathlib import Path
-import pickle
+import json
 import time
+from pprint import pprint
 
 from turtleFSI.utils import *
 from turtleFSI.problems import *
@@ -43,19 +44,31 @@ default_variables.update(args.__dict__)
 if default_variables["restart_folder"] is not None:
     restart_folder = Path(default_variables["restart_folder"])
     restart_folder = restart_folder if "Checkpoint" in restart_folder.__str__() else restart_folder.joinpath("Checkpoint")
-    with open(restart_folder.joinpath("default_variables.pickle"), "rb") as f:
-        restart_dict = pickle.load(f)
+    with open(restart_folder.joinpath("default_variables.json"), "r") as f:
+        restart_dict = json.load(f)
     default_variables.update(restart_dict)
     default_variables["restart_folder"] = restart_folder
 
 # Set variables in global namespace
 vars().update(default_variables)
 
+# Print out variables
+if MPI.rank(MPI.comm_world) == 0 and verbose:
+    pprint(default_variables)
+
 # Create folders
 vars().update(create_folders(**vars()))
 
 # Get mesh information
 mesh, domains, boundaries = get_mesh_domain_and_boundaries(**vars())
+
+# Save mesh, domains, and boundaries for post-processing
+if restart_folder is None:
+    h5_mesh_path = results_folder.joinpath("Mesh", "mesh.h5")
+    with HDF5File(mesh.mpi_comm(), h5_mesh_path.__str__(), "w") as hdf:
+        hdf.write(mesh, "/mesh")
+        hdf.write(boundaries, "/boundaries")
+        hdf.write(domains, "/domains")
 
 # Control FEniCS output
 set_log_level(loglevel)
@@ -155,7 +168,6 @@ stop = False
 first_step_num = counter # This is so that the solver will recompute the jacobian on the first step of the simulation
 while t <= T + dt / 10 and not stop:  # + dt / 10 is a hack to ensure that we take the final time step t == T
     t += dt
-
     # Pre solve hook
     tmp_dict = pre_solve(**vars())
     if tmp_dict is not None:

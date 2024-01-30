@@ -3,7 +3,11 @@
 # the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 # PURPOSE.
 
-from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI
+from dolfin import assemble, derivative, TrialFunction, Matrix, norm, MPI, PETScOptions
+from numpy import isnan
+
+PETScOptions.set("mat_mumps_icntl_4", 1) # If negatvie or zero, MUMPS will suppress diagnositc printining, statistics, and warning messages. 
+PETScOptions.set("mat_mumps_icntl_14", 400) # allocate more memory to mumps
 
 
 def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonlinear,
@@ -23,9 +27,6 @@ def solver_setup(F_fluid_linear, F_fluid_nonlinear, F_solid_linear, F_solid_nonl
                      keep_diagonal=True)
     A = Matrix(A_pre)
     b = None
-
-    # Option not available in FEniCS 2018.1.0
-    # up_sol.parameters['reuse_factorization'] = True
 
     return dict(F=F, J_nonlinear=J_nonlinear, A_pre=A_pre, A=A, b=b, up_sol=up_sol)
 
@@ -47,7 +48,7 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
     # Capture if residual increases from last iteration
     last_rel_res = residual
     last_residual = rel_res
-
+    up_sol.set_operator(A)
     while rel_res > rtol and residual > atol and iter < max_it:
         # Check if recompute Jacobian from 'recompute_tstep' (time step)
         recompute_for_timestep = iter == 0 and (counter % recompute_tstep == 0)
@@ -64,21 +65,36 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         if recompute_for_timestep or recompute_frequency or recompute_residual or recompute_initialize:
             if MPI.rank(MPI.comm_world) == 0 and verbose:
                 print("Compute Jacobian matrix")
-            A = assemble(J_nonlinear, tensor=A,
+            # Assemble non-linear part of Jacobian, keep sparsity pattern (keep_diagonal=True)
+            # Here, we assume that A is already assembled with the linear part of the Jacobian, and not None type
+            if A is None:
+                A = assemble(J_nonlinear,
+                             form_compiler_parameters=compiler_parameters,
+                             keep_diagonal=True)
+            else:
+                assemble(J_nonlinear, tensor=A,
                          form_compiler_parameters=compiler_parameters,
                          keep_diagonal=True)
+            # Add non-linear and linear part of Jacobian
             A.axpy(1.0, A_pre, True)
+            # Insert ones on diagonal to make sure the matrix is non-singular (related to solid pressure being zero)
             A.ident_zeros()
             [bc.apply(A) for bc in bcs]
-            up_sol.set_operator(A)
 
-        # Compute right hand side
-        b = assemble(-F, tensor=b)
+        # Aseemble right hand side vector
+        if b is None:
+            b = assemble(-F)
+        else:
+            assemble(-F, tensor=b)
 
-        # Apply boundary conditions and solve
+        # Apply boundary conditions before solve
         [bc.apply(b, dvp_["n"].vector()) for bc in bcs]
+        # Solve the linear system A * x = b where A is the Jacobian matrix, x is the Newton increment and b is the -residual
         up_sol.solve(dvp_res.vector(), b)
+        # Update solution using the Newton increment
         dvp_["n"].vector().axpy(lmbda, dvp_res.vector())
+        # After adding the residual to the solution, we need to re-apply the boundary conditions
+        # because the residual (dvp_res.vector) is not guaranteed to satisfy the boundary conditions
         [bc.apply(dvp_["n"].vector()) for bc in bcs]
 
         # Reset residuals
@@ -88,12 +104,12 @@ def newtonsolver(F, J_nonlinear, A_pre, A, b, bcs, lmbda, recompute, recompute_t
         # Check residual
         residual = b.norm('l2')
         rel_res = norm(dvp_res, 'l2')
-        if rel_res > 1E20 or residual > 1E20:
-            raise RuntimeError("Error: The simulation has diverged during the Newton solve.")
+        if rel_res > 1E20 or residual > 1E20 or isnan(rel_res) or isnan(residual):
+            raise RuntimeError("Error: The simulation has diverged during the Newton solve with residual = %.3e and relative residual = %.3e" % (residual, rel_res))
 
         if MPI.rank(MPI.comm_world) == 0 and verbose:
             print("Newton iteration %d: r (atol) = %.3e (tol = %.3e), r (rel) = %.3e (tol = %.3e) "
                   % (iter, residual, atol, rel_res, rtol))
         iter += 1
 
-    return dict(up_sol=up_sol, A=A)
+    return dict(up_sol=up_sol, A=A, b=b)
