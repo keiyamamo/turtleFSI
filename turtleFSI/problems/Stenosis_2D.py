@@ -223,14 +223,17 @@ def post_solve(a, dt, dvp_, t, a_file, v_n, v_nm1, **namespace):
     d_nm2 = dvp_["n-2"].sub(0, deepcopy=True)
 
     # Compute the velocity from the displacement
-    v_n.vector()[:] = (d_n.vector()[:] - d_nm1.vector()[:])/dt
-    v_nm1.vector()[:] = (d_nm1.vector()[:] - d_nm2.vector()[:])/dt
+    # v_n.vector()[:] = (d_n.vector()[:] - d_nm1.vector()[:])/dt
+    # v_nm1.vector()[:] = (d_nm1.vector()[:] - d_nm2.vector()[:])/dt
 
     # We can use the velocity directly to compute the acceleration
     # v_n = dvp_["n"].sub(1, deepcopy=True)
     # v_nm1 = dvp_["n-1"].sub(1, deepcopy=True)
 
-    a.vector()[:] = (v_n.vector()[:] - v_nm1.vector()[:])/dt
+    # a.vector()[:] = (v_n.vector()[:] - v_nm1.vector()[:])/dt
+
+    # In stead of simple averaging, we can use the trapezoidal rule to compute the acceleration
+    a.vector()[:] = (d_n.vector()[:] - 2*d_nm1.vector()[:] + d_nm2.vector()[:])/(dt**2)
 
     # write acceleration to file
     a_file.rename("Acceleration", "a")
