@@ -31,8 +31,12 @@ def set_problem_parameters(default_variables, **namespace):
         checkpoint_step=1000, # Checkpoint frequency
         theta=0.5,     # Temporal scheme
         save_step=100,
-
+        # soft
+        # solid_properties={"dx_s_id":1,"material_model":"MooneyRivlin","rho_s":1.0E3,"mu_s":mu_s_val,"lambda_s":lambda_s_val,"C01":0.002e6,"C10":0.0,"C11":0.9e6},
+        # default 
         solid_properties={"dx_s_id":1,"material_model":"MooneyRivlin","rho_s":1.0E3,"mu_s":mu_s_val,"lambda_s":lambda_s_val,"C01":0.02e6,"C10":0.0,"C11":1.8e6},
+        # stiff
+        # solid_properties={"dx_s_id":1,"material_model":"MooneyRivlin","rho_s":1.0E3,"mu_s":mu_s_val,"lambda_s":lambda_s_val,"C01":0.2e6,"C10":0.0,"C11":1.8e6},
         gravity=None,   # Gravitational force [m/s**2]
 
         # Problem specific
@@ -107,20 +111,23 @@ def create_bcs(DVP, speed, boundaries, **namespace):
     return dict(bcs=bcs)
 
 
-def post_solve(dvp_, solid_properties, mesh, stress_list, strain_list, dx_s, **namespace):
+def post_solve(dvp_, solid_properties, mesh, stress_list, strain_list, dx_s, t, speed, **namespace):
 
     V_f = VectorFunctionSpace(mesh, "CG", 1)
     x_vector = interpolate(Expression(("1.0", "0.0", "0.0"), degree=1), V_f)
     pk1_stress = Piola1(dvp_["n"].sub(0), solid_properties[0])
     volume_averaged_pk1_stress = assemble(inner(x_vector, pk1_stress * x_vector) * dx_s[0]) / assemble(inner(x_vector, x_vector) * dx_s[0])
     stress_list.append(volume_averaged_pk1_stress)
-    print("Volume averaged stress: ", volume_averaged_pk1_stress)
+    # print("Volume averaged stress: ", volume_averaged_pk1_stress)
 
     # Compute Green-Lagrange strain
     green_lagrange_strain = E(dvp_["n"].sub(0))
     volume_averaged_green_lagrange_strain = assemble(inner(x_vector, green_lagrange_strain * x_vector) * dx_s[0]) / assemble(inner(x_vector, x_vector) * dx_s[0])
-    print("Volume averaged strain: ", volume_averaged_green_lagrange_strain)
+    # print("Volume averaged strain: ", volume_averaged_green_lagrange_strain)
     strain_list.append(volume_averaged_green_lagrange_strain)
+
+    # print("Stretch: ", 1 + 2* speed * t / 0.005)
+
     return dict(stress_list=stress_list, strain_list=strain_list)
 
 def finished(stress_list, strain_list, results_folder, **namespace):
@@ -132,13 +139,16 @@ def finished(stress_list, strain_list, results_folder, **namespace):
     import matplotlib.pyplot as plt
     plt.plot(strech_list, stress_list, color='red', linewidth=1)
     # set x and y range
-    plt.xlim(1, 1.5)
-    plt.ylim(0, 1.6)
+    plt.xlim(1, 1.6)
+    plt.ylim(0, 1.8)
     # make it transparent
     image_path = results_folder / "stress_strain_curve.png"
     plt.savefig(str(image_path), transparent=True, bbox_inches='tight')
-
-    
-
-
-
+    # save stress and strain list
+    stress_strain_path = results_folder / "stress_strain.pkl"
+    # first make it as dictionary
+    stress_strain_dict = {"stretch":strech_list, "stress":stress_list}
+    # save with pkl
+    import pickle
+    with open(stress_strain_path, "wb") as file:
+        pickle.dump(stress_strain_dict, file)
