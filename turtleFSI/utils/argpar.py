@@ -120,7 +120,7 @@ def restricted_float(x):
 
 def parse():
 
-    parser = configargparse.ArgParser(config_file_parser_class=configargparse.ConfigparserConfigFileParser, 
+    parser = configargparse.ArgParser(
             description=("turtleFSI is an open source Fluid-Structure Interaction (FSI) solver written in Python "
                         + "and built upon the FEniCS finite element library. The purpose of turtleFSI is to "
                         + "provide a user friendly and numerically robust monolithic FSI solver able to handle "
@@ -275,7 +275,7 @@ def parse():
     
     if args.__dict__["solid_properties"]:
         for k, v in args.__dict__["solid_properties"].items():
-            if k != "material_model":
+            if k != "material_model" and k != "dx_s_id":
                 args.__dict__["solid_properties"][k] = float(v)
     
     if args.__dict__["fluid_properties"]:
@@ -293,6 +293,7 @@ def parse():
         args.__dict__.pop("new_arguments")
 
     # Add unknown arguments
+    unknownargs_dict = {}
     for arg in unknownargs:
         d = {}
         k, v = arg.strip("--").split('=')
@@ -302,12 +303,15 @@ def parse():
             d[k] = v
 
         # Treat list items (given as --item1=1 --item2=2...)
-        if k in args.__dict__:
-            if not isinstance(args.__dict__[k], list):
-                args.__dict__.update({k: [args.__dict__[k]]})
-            args.__dict__.update({k: args.__dict__[k] + [d[k]]})
+        if k in unknownargs_dict:
+            if not isinstance(unknownargs_dict[k], list):
+                unknownargs_dict.update({k: [unknownargs_dict[k]]})
+            unknownargs_dict.update({k: unknownargs_dict[k] + [d[k]]})
         else:
-            args.__dict__.update(d)
+            if isinstance(d[k], list):
+                d[k] = [d[k]]  # nested list
+            unknownargs_dict.update(d)
+    args.__dict__.update(unknownargs_dict)
 
     # Update the default values and then set the entire dictionary to be the inpute from
     # argparse

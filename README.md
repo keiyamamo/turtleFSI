@@ -1,5 +1,6 @@
 [![Documentation Status](https://readthedocs.org/projects/turtlefsi2/badge/?version=latest)](https://turtlefsi2.readthedocs.io/en/latest/?badge=latest)
-[![Build Status](https://travis-ci.org/KVSlab/turtleFSI.svg?branch=master)](https://travis-ci.org/KVSlab/turtleFSI)
+[![Actions FEniCS stable](https://github.com/KVSLab/turtleFSI/actions/workflows/test_turtle_conda.yml/badge.svg)](https://github.com/KVSlab/turtleFSI/actions/workflows/test_turtle_conda.yml)
+[![Actions FEniCS master](https://github.com/KVSLab/turtleFSI/actions/workflows/test_turtle.yml/badge.svg)](https://github.com/KVSlab/turtleFSI/actions/workflows/test_turtle.yml)
 [![status](https://joss.theoj.org/papers/b7febdaa2709205d40b51227091c3b0b/status.svg)](https://joss.theoj.org/papers/b7febdaa2709205d40b51227091c3b0b)
 
 # turtleFSI - a Fluid-Structure Interaction Solver
@@ -53,10 +54,7 @@ However, if you are using Linux or MaxOSX you can install turtleFSI through anac
         conda create -n your_environment -c conda-forge turtleFSI
 
 You can then activate your environment by runing ``source activate your_environment``.
-You are now all set, and can start running fluid-structure interaction simulations. If 
-you would like to use ``save_deg > 1``, then please install fenicstools by runningthe following::
-
-	pip install git+https://github.com/mikaem/fenicstools
+You are now all set, and can start running fluid-structure interaction simulations.
 
 Use
 ---
