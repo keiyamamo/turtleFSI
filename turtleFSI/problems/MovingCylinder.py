@@ -118,6 +118,20 @@ class MovingCylinder(UserExpression):
     def value_shape(self):
         return (2,)
 
+class MovingCylinderVelocity(UserExpression):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.t = 0
+        self.y_max = 0
+        self.f_o = 0
+
+    def eval(self, value, x):
+        value[0] = 0
+        value[1] = 2 * pi * self.y_max * self.f_o * cos(2 * pi * self.f_o * self.t)
+
+    def value_shape(self):
+        return (2,)
+
 def create_bcs(DVP, D, u_inf, St, F_r, A_ratio, boundaries, **namespace):
     info_red("Creating boundary conditions")
 
@@ -135,7 +149,8 @@ def create_bcs(DVP, D, u_inf, St, F_r, A_ratio, boundaries, **namespace):
     # Define boundary conditions for the velocity and the pressure
     bcu_inlet = DirichletBC(DVP.sub(1), Constant((u_inf, 0)), boundaries, 1)
     bcu_wall = DirichletBC(DVP.sub(1), Constant((u_inf, 0)), boundaries, 2)
-    bcu_circle = DirichletBC(DVP.sub(1), Constant((0, 0)), boundaries, 3)
+    # bcu_circle = DirichletBC(DVP.sub(1), Constant((0, 0)), boundaries, 3)
+    bcu_circle = DirichletBC(DVP.sub(1), MovingCylinderVelocity(), boundaries, 3)
     bcp_outlet = DirichletBC(DVP.sub(2), Constant(0), boundaries, 4)
 
     bcd_inlet = DirichletBC(DVP.sub(0), Constant((0, 0)), boundaries, 1)
