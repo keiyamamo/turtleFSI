@@ -185,7 +185,7 @@ def checkpoint(dvp_, default_variables, checkpoint_folder, mesh, **namespace):
     """Utility function for storing the current parameters and the last two time steps"""
     # Only update variables that exists in default_variables
     default_variables.update((k, namespace[k]) for k in (default_variables.keys() & namespace.keys()))
-
+    default_variables["constrained_domain"] = str(default_variables["constrained_domain"])
     # Dump default parameters
     if MPI.rank(MPI.comm_world) == 0:
         with open(str(checkpoint_folder.joinpath("default_variables.json")), "w") as f:
