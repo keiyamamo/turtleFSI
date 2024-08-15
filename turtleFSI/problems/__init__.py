@@ -111,6 +111,7 @@ default_variables = dict(
     folder="results",                          # Folder to store results and checkpoint files
     sub_folder=None,                           # The unique name of the sub directory under folder where the results are stored
     restart_folder=None,                       # Path to a potential restart folder
+    constrained_domain=None,                   # Constrained domain for the function space
 
     # Misc settings
     killtime=None,                             # Stop simulations cleanly after the given number of seconds
