@@ -12,11 +12,16 @@ This problem can be used to test the accuracy of the fluid solver
 The mesh can be either structured or unstructured based on the user's choice and availability of pygmsh
 """
 
+# set compiler arguments
+parameters["form_compiler"]["quadrature_degree"] = 6
+parameters["form_compiler"]["optimize"] = True
+_compiler_parameters = dict(parameters["form_compiler"])
+
 # Override some problem specific parameters
 def set_problem_parameters(default_variables, **namespace):
     default_variables.update(dict(
         mu_f=1/1600,                        # dynamic viscosity of fluid, 0.01 as kinematic viscosity
-        T=0.004,
+        T=20,
         dt=0.002,
         theta=0.5,                        # Crank-Nicolson
         rho_f = 1,                        # density of fluid
@@ -27,14 +32,16 @@ def set_problem_parameters(default_variables, **namespace):
         checkpoint_step=500,
         v_deg=2,
         p_deg=1,
-        atol=1e-10,
-        rtol=1e-10,
+        d_deg=1,
+        atol=1e-8,
+        rtol=1e-8,
         N=10,                              # number of points along x or y axis when creating structured mesh
         recompute=100,
         recompute_tstep=100,
         constrained_domain=PeriodicDomain(),
         save_deg=2,
         kinematic_energy_previous = 0,
+        compiler_parameters=_compiler_parameters,
         ))
 
     return default_variables
@@ -148,31 +155,32 @@ def initiate(dvp_, DVP, **namespace):
                 time_list=time_list, enstrophy_list=enstrophy_list)
 
 
-def post_solve(DVP, t, dt, dvp_, kinetic_energy_list, dissipation_list, kinematic_energy_previous, time_list, enstrophy_list, **namespace):
+def post_solve(DVP, t, dt, dvp_, counter, kinetic_energy_list, dissipation_list, kinematic_energy_previous, time_list, enstrophy_list, **namespace):
     """
     Compute errors after solving 
     """
     # Get velocity, and pressure
-    v = dvp_["n"].sub(1, deepcopy=True)
-    
-    kinetic = assemble(0.5 * dot(v, v) * dx) / (2 * pi)**3
-    kinetic_dissipation_rate = -(kinetic - kinematic_energy_previous) / dt
-    enstrophy = assemble(0.5 * dot(curl(v), curl(v)) * dx) / (2 * pi)**3
+    if counter % 5 == 0:
+        v = dvp_["n"].sub(1, deepcopy=True)
+        
+        kinetic = assemble(0.5 * dot(v, v) * dx) / (2 * pi)**3
+        kinetic_dissipation_rate = -(kinetic - kinematic_energy_previous) / (dt * 5)
+        enstrophy = assemble(0.5 * dot(curl(v), curl(v)) * dx) / (2 * pi)**3
 
-    kinetic_energy_list.append(kinetic)
-    dissipation_list.append(kinetic_dissipation_rate)
-    enstrophy_list.append(enstrophy)
-    time_list.append(t)
+        kinetic_energy_list.append(kinetic)
+        dissipation_list.append(kinetic_dissipation_rate)
+        enstrophy_list.append(enstrophy)
+        time_list.append(t)
 
 
-    # print info
-    if MPI.rank(MPI.comm_world) == 0:
-        print("Kinetic energy: ", kinetic)
-        print("Dissipation rate: ", kinetic_dissipation_rate)
-        print("Enstrophy: ", enstrophy)
+        # print info
+        if MPI.rank(MPI.comm_world) == 0:
+            print("Kinetic energy: ", kinetic)
+            print("Dissipation rate: ", kinetic_dissipation_rate)
+            print("Enstrophy: ", enstrophy)
 
-    return dict(kinetic_energy_list=kinetic_energy_list, dissipation_list=dissipation_list, 
-                kinematic_energy_previous=kinetic, time_list=time_list, enstrophy_list=enstrophy_list)
+        return dict(kinetic_energy_list=kinetic_energy_list, dissipation_list=dissipation_list, 
+                    kinematic_energy_previous=kinetic, time_list=time_list, enstrophy_list=enstrophy_list)
 
 
 def finished(kinetic_energy_list, dissipation_list, time_list, enstrophy_list, results_folder, **namespace):
