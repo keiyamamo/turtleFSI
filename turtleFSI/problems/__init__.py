@@ -298,7 +298,7 @@ def save_files_visualization(visualization_folder, dvp_, t, save_deg, v_deg, p_d
 
     # The following interploate displacement and velocity but not pressure. For example, P2P2P1 (dvp) with save_deg >=2.
     elif save_deg > 1 and p_deg < save_deg and v_deg >= save_deg:
-        namespace["d_viz"].vector()[:] = namespace["dv_trans"]*d.vector()
+        # namespace["d_viz"].vector()[:] = namespace["dv_trans"]*d.vector()
         namespace["v_viz"].vector()[:] = namespace["dv_trans"]*v.vector()
 
         write_solution(namespace["d_viz"], namespace["v_viz"], p, namespace["d_file"], namespace["v_file"], namespace["p_file"], t) 
