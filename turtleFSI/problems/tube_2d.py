@@ -32,11 +32,11 @@ def set_problem_parameters(default_variables, **namespace):
         mu_s=mu_s_val,          # Solid shear modulus or 2nd Lame Coef. 
         nu_s=nu_s_val,          # Solid Poisson ratio [-]
         lambda_s=lambda_s_val,  # Solid Young's modulus 
-        dx_f_id=7,              # ID of marker in the fluid domain
-        dx_s_id=8,              # ID of marker in the solid domain
+        dx_f_id=8,              # ID of marker in the fluid domain
+        dx_s_id=9,              # ID of marker in the solid domain
         checkpoint_step=50,     # Save frequency of checkpoint files 
         save_step=1,            # Save frequency of files for visualisation
-        save_deg=1,
+        save_deg=2,
         d_deg = 2,
         v_deg = 2,
         P_deg = 1,
@@ -202,7 +202,7 @@ def create_bcs(DVP, boundaries, dvp_, v_deg, p_deg, psi, mesh, F_fluid_nonlinear
 
     # Fluid displacement BCs / displacement at fluid inlet and outlet is 0 
     d_f_inlet = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, 1)
-    d_f_outlet = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, 2)
+    # d_f_outlet = DirichletBC(DVP.sub(0), ((0.0, 0.0)), boundaries, 2)
 
     # Fluid velocity BCs
     inflow_profile = ('0.01*1.5*(x[1] + 0.001)*(0.001 - x[1]) / pow(0.001, 2)', '0')
@@ -221,16 +221,16 @@ def create_bcs(DVP, boundaries, dvp_, v_deg, p_deg, psi, mesh, F_fluid_nonlinear
     # F_fluid_linear -= inner(impulse_force, psi)*dsi 
 
     # Neumann BC for fluid outlet as traction / here we assume that the pressure is the dominant term in the stress tensor
-    dsi = ds(2, domain=mesh, subdomain_data=boundaries)
-    ni = FacetNormal(dsi)
-    pf = Constant(100) * Identity(2)
-    d = dvp_["n"].sub(0, deepcopy=True)
-    F_fluid_nonlinear -= inner(J_(d) * pf * inv(F_(d)).T * ni, psi) * dsi
+    # dsi = ds(2, domain=mesh, subdomain_data=boundaries)
+    # ni = FacetNormal(dsi)
+    # pf = Constant(100) * Identity(2)
+    # d = dvp_["n"].sub(0, deepcopy=True)
+    # F_fluid_nonlinear -= inner(J_(d) * pf * inv(F_(d)).T * ni, psi) * dsi
 
-    bcs = [u_f_inlet, d_s_inlet, d_s_outlet, v_s_inlet, v_s_outlet, d_f_inlet, d_f_outlet]
+    bcs = [u_f_inlet, d_s_inlet, d_s_outlet, v_s_inlet, v_s_outlet, d_f_inlet]
 
-    # return dict(bcs=bcs)
-    return dict(bcs=bcs, F_fluid_nonlinear=F_fluid_nonlinear)
+    return dict(bcs=bcs)
+    # return dict(bcs=bcs, F_fluid_nonlinear=F_fluid_nonlinear)
     # return dict(bcs=bcs, u_inflow_exp=u_inflow_exp, p_outlet_exp=p_outlet_exp)
 
 
