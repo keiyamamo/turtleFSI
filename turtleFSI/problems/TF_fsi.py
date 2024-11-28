@@ -27,21 +27,22 @@ def set_problem_parameters(default_variables, **namespace):
     # Overwrite or add new variables to 'default_variables'
     default_variables.update(dict(
         # Temporal variables
-        T=30,                         # End time [s]
+        T=10,                         # End time [s]
         dt=0.01,                      # Time step [s]
         theta=0.51,                    # Temporal scheme
+        save_step=1,
 
         # Physical constants ('FSI 3')
-        Um=2.0,                       # Max. velocity inlet, CDF3: 2.0 [m/s]
+        Um=1.0,                       # Max. velocity inlet, CDF3: 2.0 [m/s]
         rho_f=1.0e3,                  # Fluid density [kg/m3]
         mu_f=1.0,                     # Fluid dynamic viscosity [Pa.s]
-        rho_s=1.0e3,                  # Solid density[kg/m3]
+        rho_s=10.0e3,                  # Solid density[kg/m3]
         nu_s=0.4,                     # Solid Poisson ratio [-]
-        mu_s=2.0e6,                   # Shear modulus, CSM3: 0.5E6 [Pa]
-        lambda_s=4e6,                 # Solid 1st Lame Coefficient [Pa]
+        mu_s=0.5e6,                   # Shear modulus, CSM3: 0.5E6 [Pa]
+        lambda_s=2e6,                 # Solid 1st Lame Coefficient [Pa]
 
         # Problem specific
-        folder="TF_fsi_results",      # Name of the results folder
+        folder="TF_fsi_results_fsi2",      # Name of the results folder
         extrapolation="biharmonic",   # No displacement to extrapolate
         extrapolation_sub_type="constrained_disp_vel",  # Biharmonic type
         bc_ids=[2, 3, 4, 6],          # Ids of makers for the mesh extrapolation
@@ -104,7 +105,7 @@ def get_mesh_domain_and_boundaries(R, H, L, f_L, f_H, c_x, c_y, **namespace):
     return mesh, domains, boundaries
 
 
-def initiate(c_x, c_y, R, f_L, **namespace):
+def initiate(c_x, c_y, R, f_L, mesh, **namespace):
     # Coordinate for sampling statistics
     coord = [c_x + R + f_L, c_y]
 
@@ -117,7 +118,6 @@ def initiate(c_x, c_y, R, f_L, **namespace):
 
     return dict(displacement_x_list=displacement_x_list, displacement_y_list=displacement_y_list,
                 drag_list=drag_list, lift_list=lift_list, time_list=time_list, coord=coord)
-
 
 class Inlet(UserExpression):
     def __init__(self, Um, H, **kwargs):
@@ -219,12 +219,33 @@ def peval(f, x):
     return yglob
 ################################################################################
 
+def get_new_normal(n_new, mesh):
+    V = VectorFunctionSpace(mesh, "DG", 2)
+    u = TrialFunction(V)
+    v = TestFunction(V)
+    a = Constant(0)*inner(u, v)*dx+ inner(u, v)*ds
+    L = inner(n_new, v)*ds
+
+    A = assemble(a, keep_diagonal=True)
+    A.ident_zeros()
+    b = assemble(L)
+    nh = Function(V, name="n")
+    solve(A, nh.vector(), b)
+
+    return nh
+
 
 def post_solve(t, dvp_, coord, displacement_x_list, displacement_y_list, drag_list, lift_list, mu_f, n,
-               verbose, time_list, ds, dS, **namespace):
+               verbose, time_list, ds, dS, mesh, **namespace):
     d = dvp_["n"].sub(0, deepcopy=True)
     v = dvp_["n"].sub(1, deepcopy=True)
     p = dvp_["n"].sub(2, deepcopy=True)
+
+    jac = J_(d)
+    n_new = jac * inv(F_(d)).T * n
+    n_new = get_new_normal(n_new, mesh)
+
+    n = n_new
 
     # Compute drag and lift
     Dr = -assemble((sigma(v, p, d, mu_f)*n)[0]*ds(6))
