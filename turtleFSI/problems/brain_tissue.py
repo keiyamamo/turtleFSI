@@ -43,7 +43,7 @@ def set_problem_parameters(default_variables, **namespace):
         folder="brain_tissue",          # Folder to store the results
         fluid="no_fluid",                 # Do not solve for the fluid
         extrapolation="no_extrapolation",  # No displacement to extrapolate
-        solid_vel=0.1, # this is the velocity of the wall with prescribed displacement
+        solid_vel=0.0003, # this is the velocity of the wall with prescribed displacement
         solid_properties=[{"dx_s_id": 0, "material_model": "StVenantKirchoff", "rho_s": 1.0E3, "mu_s": mu_s_val,
                            "lambda_s": lambda_s_val},
                           {"dx_s_id": 1, "material_model": "StVenantKirchoff", "rho_s": 1.0E3, "mu_s": mu_s_val_brain,
@@ -61,13 +61,15 @@ def get_mesh_domain_and_boundaries(dx_s_id, **namespace):
     # Mark boundaries
     Lwall = AutoSubDomain(lambda x: (x[0]< tol))
     Rwall = AutoSubDomain(lambda x: (x[0]> 0.003 - tol))
-    sideY = AutoSubDomain(lambda x: (x[1] < negEnd or x[1] > posEnd))
-    sideZ = AutoSubDomain(lambda x: (x[2] < negEnd or x[2] > posEnd))
+    sideY = AutoSubDomain(lambda x: (x[1] < tol))
+    sideZ = AutoSubDomain(lambda x: (x[2] < tol))
 
     boundaries = MeshFunction("size_t", mesh, mesh.geometry().dim() - 1)
     boundaries.set_all(0)
     Lwall.mark(boundaries, 1)
     Rwall.mark(boundaries, 2)
+    sideY.mark(boundaries, 3)
+    sideZ.mark(boundaries, 4)
 
     domains = MeshFunction("size_t", mesh, mesh.geometry().dim())
     domains.set_all(0)
@@ -83,80 +85,37 @@ def get_mesh_domain_and_boundaries(dx_s_id, **namespace):
     
     return mesh, domains, boundaries
 
+    
+class PrescribedDisp(UserExpression):
+    def __init__(self, solid_vel, **kwargs):
+        self.solid_vel = solid_vel
+        self.factor = 0
 
-class InnerP(UserExpression):
-    def __init__(self, t, t_start, t_end, P_final, **kwargs):
-        self.t = t
-        self.t_start = t_start
-        self.t_end = t_end
-        self.P_final = P_final
-        self.P = 0.0
         super().__init__(**kwargs)
 
     def update(self, t):
-        self.t = t
-        # apply a sigmoid ramp to the pressure
-        if self.t < self.t_start:
-            ramp_factor = 0.0
-        elif self.t < self.t_end and self.t > self.t_start:
-            ramp_factor = -0.5 * np.cos(np.pi * (self.t - self.t_start) / (self.t_end - self.t_start)) + 0.5
-        else:
-            ramp_factor = 1.0
-        self.P = ramp_factor * self.P_final
+        self.factor = t * self.solid_vel
+        print('displacement = ', self.factor)
 
-        if MPI.rank(MPI.comm_world) == 0:
-            print("P = {} Pa".format(self.P))
-
-    def eval(self, value, x):
-        value[0] = self.P
-
-    def value_shape(self):
-        return ()
-    
-
-def top_left_point(x, on_boundary):
-    """
-    Fixing the point for avoiding rotation of the mesh.
-    """
-    tol = DOLFIN_EPS
-    return near(x[0], 0.003, tol) and near(x[1], 0.001, tol) and near(x[2], 0.001, tol)
+    def eval(self, value,x):
+        value[0] = self.factor
 
 
-def bottom_right_point(x, on_boundary):
-    """
-    Fixing the point for avoiding rotation of the mesh.
-    """
-    tol = DOLFIN_EPS
-    return near(x[0], 0.003, tol) and near(x[1], 0.0, tol) and near(x[2], 0.0, tol)
+def create_bcs(DVP,d_deg,solid_vel, boundaries, **namespace):
+    # Sliding contact on 3 sides
+    u_lwallX = DirichletBC(DVP.sub(0).sub(0), ((0.0)), boundaries, 2)
+    u_CornerY = DirichletBC(DVP.sub(0).sub(1), ((0.0)), boundaries, 3)
+    u_CornerZ = DirichletBC(DVP.sub(0).sub(2), ((0.0)), boundaries, 4)
+
+    # Displacement on the right hand side (unconstrained in Y and Z)
+    d_t = PrescribedDisp(solid_vel,degree=d_deg)
+    u_rwall = DirichletBC(DVP.sub(0).sub(0), d_t, boundaries, 1)
+
+    bcs = [u_lwallX, u_rwall,u_CornerY,u_CornerZ]
+
+    return dict(bcs=bcs,d_t=d_t)
 
 
-def top_right_point(x, on_boundary):
-    tol = DOLFIN_EPS
-    return near(x[0], 0.003, tol) and near(x[1], 0.001, tol) and near(x[2], 0.0, tol)
-
-
-
-def create_bcs(F_solid_linear, DVP, boundaries, P_final, t_start_p, t_end_p, mesh, psi, **namespace):
-    # Apply pressure at the fsi interface by modifying the variational form
-    p_out_bc_val = InnerP(t=0.0, t_start=t_start_p, t_end=t_end_p, P_final=P_final, degree=2)
-    ds = Measure("ds", domain=mesh, subdomain_data=boundaries)
-    n = FacetNormal(mesh)
-    # defined on the reference domain
-    # NOTE: ('+') implicitly assumes that the solid domain has a higher domain ID than the fluid domain
-    F_solid_linear += p_out_bc_val * inner(n, psi) * ds(1)
-    # Clamp on the right hand side
-    u_rwall = DirichletBC(DVP.sub(0).sub(0), ((0.0)), boundaries, 2)
-
-    bc_point1 = DirichletBC(DVP.sub(0), ((0, 0, 0)), top_left_point, method="pointwise")    
-    bc_point2 = DirichletBC(DVP.sub(0), ((0, 0, 0)), bottom_right_point, method="pointwise")
-    bc_point3 = DirichletBC(DVP.sub(0), ((0, 0, 0)), top_right_point, method="pointwise")
-    
-    bcs = [u_rwall, bc_point1, bc_point2, bc_point3]
-
-    return dict(bcs=bcs, p_out_bc_val=p_out_bc_val, 
-                F_solid_linear=F_solid_linear)
-
-
-def pre_solve(t, p_out_bc_val, **namespace):
+def pre_solve(t, d_t, **namespace):
     """Update boundary conditions"""
-    p_out_bc_val.update(t)
+    d_t.update(t)
