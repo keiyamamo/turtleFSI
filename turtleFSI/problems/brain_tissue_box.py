@@ -5,7 +5,7 @@
 
 from dolfin import *
 from turtleFSI.problems import *
-
+import stress_strain as StrStr
 
 
 # set compiler arguments
@@ -34,6 +34,7 @@ def set_problem_parameters(default_variables, **namespace):
         P_final=10000,  # Steady State pressure applied to wall
         t_start_p=0.0,  # Start time for pressure application
         t_end_p=0.9,    # End time for pressure application
+        save_deg=2,
 
         # Physical constants
         gravity=None,   # Gravitational force [m/s**2]
