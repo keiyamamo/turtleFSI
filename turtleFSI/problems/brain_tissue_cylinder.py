@@ -36,87 +36,102 @@ def set_problem_parameters(default_variables, **namespace):
         t_end_p=0.9,    # End time for pressure application
         save_deg=2,
 
-        # Physical constants
-        gravity=None,   # Gravitational force [m/s**2]
-
         # Problem specific
-        dx_s_id=[0, 1],     # Id of the solid domain
+        # dx_s_id=[0, 1],     # Id of the solid domain
+        dx_s_id=5,     # Id of the solid domain
         folder="brain_tissue",          # Folder to store the results
         fluid="no_fluid",                 # Do not solve for the fluid
         extrapolation="no_extrapolation",  # No displacement to extrapolate
         solid_vel=0.0003, # this is the velocity of the wall with prescribed displacement
-        solid_properties=[{"dx_s_id": 0, "material_model": "StVenantKirchoff", "rho_s": 1.0E3, "mu_s": mu_s_val,
-                           "lambda_s": lambda_s_val},
-                          {"dx_s_id": 1, "material_model": "StVenantKirchoff", "rho_s": 1.0E3, "mu_s": mu_s_val_brain,
-                           "lambda_s": lambda_s_val_brain}],
+        # solid_properties=[{"dx_s_id": 0, "material_model": "StVenantKirchoff", "rho_s": 1.0E3, "mu_s": mu_s_val,
+        #                    "lambda_s": lambda_s_val},
+        #                   {"dx_s_id": 1, "material_model": "StVenantKirchoff", "rho_s": 1.0E3, "mu_s": mu_s_val_brain,
+        #                    "lambda_s": lambda_s_val_brain}],
+        solid_properties=[{"dx_s_id": 5, "material_model": "StVenantKirchoff", "rho_s": 1.0E3, "mu_s": mu_s_val,
+                           "lambda_s": lambda_s_val}],
         ))   
 
     return default_variables
 
 
 def get_mesh_domain_and_boundaries(dx_s_id, **namespace):
+
+    mesh_path = "/Users/keiyamamoto/Documents/MyMesh/cylinder/aneurysm_cylinder/mesh.xdmf"
     
-    mesh = BoxMesh(Point(0.0, 0.0, 0.0), Point(0.003, 0.001, 0.001), 20, 6, 6)
-
-    tol = 1E-14
-    # Mark boundaries
-    Lwall = AutoSubDomain(lambda x: (x[0]< tol))
-    Rwall = AutoSubDomain(lambda x: (x[0]> 0.003 - tol))
-    sideY = AutoSubDomain(lambda x: (x[1] < tol))
-    sideZ = AutoSubDomain(lambda x: (x[2] < tol))
-
-    boundaries = MeshFunction("size_t", mesh, mesh.geometry().dim() - 1)
-    boundaries.set_all(0)
-    Lwall.mark(boundaries, 1)
-    Rwall.mark(boundaries, 2)
-    sideY.mark(boundaries, 3)
-    sideZ.mark(boundaries, 4)
-
-    domains = MeshFunction("size_t", mesh, mesh.geometry().dim())
-    domains.set_all(0)
-    x_min = 0.0003
-    i = 0
-    for cell in cells(mesh):
-        idx_cell = domains.array()[i]
-        if idx_cell ==  dx_s_id[0]:
-            mid = cell.midpoint()
-            if mid.x() > x_min:
-                domains.array()[i] = dx_s_id[1]
-        i += 1
+    mesh = Mesh()
+    with XDMFFile(mesh_path) as infile:
+        infile.read(mesh)
     
+    mf_path = "/Users/keiyamamoto/Documents/MyMesh/cylinder/aneurysm_cylinder/mf.xdmf"
+    # Import mesh boundaries
+    boundaries = MeshValueCollection("size_t", mesh, 2) 
+    with XDMFFile(mf_path) as infile:
+        infile.read(boundaries, "name_to_read")
+
+    boundaries = cpp.mesh.MeshFunctionSizet(mesh, boundaries)
+    
+    # Define mesh domains
+    domains = MeshValueCollection("size_t", mesh, 3) 
+    with XDMFFile(mesh_path) as infile:
+        infile.read(domains, "name_to_read")
+
+    domains = cpp.mesh.MeshFunctionSizet(mesh, domains)
+
+
     return mesh, domains, boundaries
 
-    
-class PrescribedDisp(UserExpression):
-    def __init__(self, solid_vel, **kwargs):
-        self.solid_vel = solid_vel
-        self.factor = 0
 
+class InnerP(UserExpression):
+    def __init__(self, t, t_start, t_end, P_final, **kwargs):
+        self.t = t
+        self.t_start = t_start
+        self.t_end = t_end
+        self.P_final = P_final
+        self.P = 0.0
         super().__init__(**kwargs)
 
     def update(self, t):
-        self.factor = t * self.solid_vel
-        print('displacement = ', self.factor)
+        self.t = t
+        # apply a sigmoid ramp to the pressure
+        if self.t < self.t_start:
+            ramp_factor = 0.0
+        elif self.t < self.t_end and self.t > self.t_start:
+            ramp_factor = -0.5 * np.cos(np.pi * (self.t - self.t_start) / (self.t_end - self.t_start)) + 0.5
+        else:
+            ramp_factor = 1.0
+        self.P = ramp_factor * self.P_final
 
-    def eval(self, value,x):
-        value[0] = self.factor
+        if MPI.rank(MPI.comm_world) == 0:
+            print("P = {} Pa".format(self.P))
+
+    def eval(self, value, x):
+        value[0] = self.P
+
+    def value_shape(self):
+        return ()
 
 
-def create_bcs(DVP,d_deg,solid_vel, boundaries, **namespace):
+def create_bcs(F_solid_linear, DVP, boundaries, P_final, t_start_p, t_end_p, mesh, psi, **namespace):
     # Sliding contact on 3 sides
-    u_lwallX = DirichletBC(DVP.sub(0).sub(0), ((0.0)), boundaries, 2)
-    u_CornerY = DirichletBC(DVP.sub(0).sub(1), ((0.0)), boundaries, 3)
-    u_CornerZ = DirichletBC(DVP.sub(0).sub(2), ((0.0)), boundaries, 4)
+    p_out_bc_val = InnerP(t=0.0, t_start=t_start_p, t_end=t_end_p, P_final=P_final, degree=2)
+    ds = Measure("ds", domain=mesh, subdomain_data=boundaries)
+    n = FacetNormal(mesh)
+    # defined on the reference domain
+    # NOTE: ('+') implicitly assumes that the solid domain has a higher domain ID than the fluid domain
+    F_solid_linear += p_out_bc_val * inner(n, psi) * ds(1)
 
-    # Displacement on the right hand side (unconstrained in Y and Z)
-    d_t = PrescribedDisp(solid_vel,degree=d_deg)
-    u_rwall = DirichletBC(DVP.sub(0).sub(0), d_t, boundaries, 1)
+    # fix z-direction of the solid
+    u_solid_z = DirichletBC(DVP.sub(0).sub(2), Constant(0.0), boundaries, 2)
 
-    bcs = [u_lwallX, u_rwall,u_CornerY,u_CornerZ]
+    bcs = [u_solid_z]
 
-    return dict(bcs=bcs,d_t=d_t)
+    # from IPython import embed; embed(); exit(1)
+
+    return dict(bcs=bcs, p_out_bc_val=p_out_bc_val, F_solid_linear=F_solid_linear)
 
 
-def pre_solve(t, d_t, **namespace):
-    """Update boundary conditions"""
-    d_t.update(t)
+def pre_solve(t, p_out_bc_val, **namespace):
+    # Update the pressure boundary condition
+    p_out_bc_val.update(t)
+    
+    return dict(p_out_bc_val=p_out_bc_val)
