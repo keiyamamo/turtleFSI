@@ -18,11 +18,6 @@ def set_problem_parameters(default_variables, **namespace):
     nu_s_val = 0.45
     mu_s_val = E_s_val / (2 * (1 + nu_s_val))  # 0.345E6
     lambda_s_val = nu_s_val * 2. * mu_s_val / (1. - 2. * nu_s_val)
-
-    E_s_val_brain = 1E5  # Young modulus (Pa) 100k Pa
-    nu_s_val_brain = 0.499 # Poisson ratio, nearly incompressible
-    mu_s_val_brain = E_s_val_brain / (2 * (1 + nu_s_val_brain))  # 0.345E6
-    lambda_s_val_brain = nu_s_val_brain * 2. * mu_s_val_brain / (1. - 2. * nu_s_val_brain)
      
     default_variables.update(dict(
         # Temporal variables
@@ -35,18 +30,17 @@ def set_problem_parameters(default_variables, **namespace):
         t_start_p=0.0,  # Start time for pressure application
         t_end_p=0.9,    # End time for pressure application
         save_deg=2,
+        recompute=20,
+        recompute_tstep=110,
 
         # Problem specific
-        # dx_s_id=[0, 1],     # Id of the solid domain
         dx_s_id=5,     # Id of the solid domain
+        # dx_s_id=2,     # Id of the solid domain
         folder="brain_tissue",          # Folder to store the results
         fluid="no_fluid",                 # Do not solve for the fluid
         extrapolation="no_extrapolation",  # No displacement to extrapolate
         solid_vel=0.0003, # this is the velocity of the wall with prescribed displacement
-        # solid_properties=[{"dx_s_id": 0, "material_model": "StVenantKirchoff", "rho_s": 1.0E3, "mu_s": mu_s_val,
-        #                    "lambda_s": lambda_s_val},
-        #                   {"dx_s_id": 1, "material_model": "StVenantKirchoff", "rho_s": 1.0E3, "mu_s": mu_s_val_brain,
-        #                    "lambda_s": lambda_s_val_brain}],
+        # solid_properties=[{"dx_s_id": 2, "material_model": "StVenantKirchoff", "rho_s": 1.0E3, "mu_s": mu_s_val,
         solid_properties=[{"dx_s_id": 5, "material_model": "StVenantKirchoff", "rho_s": 1.0E3, "mu_s": mu_s_val,
                            "lambda_s": lambda_s_val}],
         ))   
@@ -57,12 +51,14 @@ def set_problem_parameters(default_variables, **namespace):
 def get_mesh_domain_and_boundaries(dx_s_id, **namespace):
 
     mesh_path = "/Users/keiyamamoto/Documents/MyMesh/cylinder/aneurysm_cylinder/mesh.xdmf"
+    # mesh_path = "/Users/keiyamamoto/Documents/MyMesh/cylinder/cylinder_only/mesh.xdmf"
     
     mesh = Mesh()
     with XDMFFile(mesh_path) as infile:
         infile.read(mesh)
-    
+
     mf_path = "/Users/keiyamamoto/Documents/MyMesh/cylinder/aneurysm_cylinder/mf.xdmf"
+    # mf_path = "/Users/keiyamamoto/Documents/MyMesh/cylinder/cylinder_only/mf.xdmf"
     # Import mesh boundaries
     boundaries = MeshValueCollection("size_t", mesh, 2) 
     with XDMFFile(mf_path) as infile:
@@ -76,7 +72,6 @@ def get_mesh_domain_and_boundaries(dx_s_id, **namespace):
         infile.read(domains, "name_to_read")
 
     domains = cpp.mesh.MeshFunctionSizet(mesh, domains)
-
 
     return mesh, domains, boundaries
 
@@ -112,21 +107,19 @@ class InnerP(UserExpression):
 
 
 def create_bcs(F_solid_linear, DVP, boundaries, P_final, t_start_p, t_end_p, mesh, psi, **namespace):
-    # Sliding contact on 3 sides
+    
     p_out_bc_val = InnerP(t=0.0, t_start=t_start_p, t_end=t_end_p, P_final=P_final, degree=2)
     ds = Measure("ds", domain=mesh, subdomain_data=boundaries)
     n = FacetNormal(mesh)
-    # defined on the reference domain
-    # NOTE: ('+') implicitly assumes that the solid domain has a higher domain ID than the fluid domain
+    # F_solid_linear += p_out_bc_val * inner(n, psi) * ds(6)
     F_solid_linear += p_out_bc_val * inner(n, psi) * ds(1)
 
-    # fix z-direction of the solid
+
+    # u_solid_z = DirichletBC(DVP.sub(0).sub(2), Constant(0.0), boundaries, 5)
     u_solid_z = DirichletBC(DVP.sub(0).sub(2), Constant(0.0), boundaries, 2)
-
+    
     bcs = [u_solid_z]
-
-    # from IPython import embed; embed(); exit(1)
-
+    
     return dict(bcs=bcs, p_out_bc_val=p_out_bc_val, F_solid_linear=F_solid_linear)
 
 
