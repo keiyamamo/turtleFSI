@@ -7,6 +7,7 @@ import pytest
 import numpy as np
 from pathlib import Path
 import subprocess
+import sys
 
 
 def test_cfd():
@@ -123,6 +124,10 @@ def test_elastic():
     assert np.isclose(lift, lift_reference)
 
 
+@pytest.mark.skipif(
+       sys.platform == "darwin",
+       reason="Known FEniCS runtime segmentation fault on macOS for --save-deg 2 in CI",
+)
 def test_save_deg2():
     """simple test if the save_deg 2 works"""
     cmd = ("turtleFSI --problem TF_fsi -dt 0.01 -T 0.05 --theta 0.51 --save-deg 2" +
