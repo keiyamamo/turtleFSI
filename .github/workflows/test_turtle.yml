@@ -13,6 +13,14 @@ on:
   schedule:
     # The CI is executed every day at 8am
     - cron: "0 8 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-code:
     runs-on: ubuntu-22.04
@@ -20,11 +28,11 @@ jobs:
     container: ghcr.io/scientificcomputing/fenics:2023-04-21
     steps:
       # This action sets the current path to the root of your github repo
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
 
       - name: "Install code"
-        run: python3 setup.py install
+        run: python3 -m pip install --no-deps .
       - name: Run tests
         run: |
           python3 -m pytest

@@ -1,4 +1,5 @@
 name: Install turtle dependencies via conda
+description: Set up conda environment and install turtleFSI dependencies
 
 inputs:
   python-version:
@@ -13,9 +14,9 @@ runs:
     # cache ref https://github.com/conda-incubator/setup-miniconda#caching-packages
 
     - name: Setup conda-forge
-      uses: conda-incubator/setup-miniconda@v2
+      uses: conda-incubator/setup-miniconda@v3
       with:
-          miniforge-variant: Mambaforge
+          miniforge-variant: Miniforge3
           miniforge-version: latest
           activate-environment:  turtleFSI
           python-version: ${{ inputs.python-version }}
@@ -34,12 +35,12 @@ runs:
       shell: bash
 
     - name: Cache conda env
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       id: cache-env
       with:
         path: ${{ env.CONDA }}/envs/turtleFSI
         key:
-          conda-env-${{ steps.get-date.outputs.today }}-${{ inputs.python-version }}-${{ hashFiles('environment.yml') }}-${{ hashFiles('.github/actions/install-dependencies/**') }}
+          conda-env-${{ steps.get-date.outputs.today }}-${{ inputs.python-version }}-${{ hashFiles('environment.yml') }}-${{ hashFiles('.github/actions/conda-install/**') }}
 
     - name: Clear package cache
       # package cache seems to be stale
