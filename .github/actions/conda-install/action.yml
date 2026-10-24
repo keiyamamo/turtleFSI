@@ -27,6 +27,11 @@ runs:
     - name: Modify environment file
       run: |
         sed -i'' -e "s/python>3.7/python=${{ inputs.python-version }}/g" environment.yml
+        # fenics-dolfin now resolves against newer hdf5 builds on macOS.
+        # Keep the repository pin for local reproducibility, but relax it in CI on macOS.
+        if [[ "$RUNNER_OS" == "macOS" ]]; then
+          sed -i'' -e '/^  - hdf5=1.12.2$/d' environment.yml
+        fi
       shell: bash
 
     - name: Get Date
